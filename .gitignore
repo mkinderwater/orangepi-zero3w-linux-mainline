@@ -1,0 +1,12 @@
+*.img
+*.img.*
+*.dtb
+*.ko
+*.o
+*.tar.gz
+*.zip
+zero3w-hardware*
+build*/
+output/
+results/
+*.log

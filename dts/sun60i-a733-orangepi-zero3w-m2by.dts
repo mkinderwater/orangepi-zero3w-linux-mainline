@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+// M2by: experimental build validation only, NOT approved for hardware boot.
+/dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
+#include "sun60i-a733.dtsi"
+
+/ {
+	model = "Orange Pi Zero 3W (M2by build validation)";
+	compatible = "xunlong,orangepi-zero3w", "allwinner,sun60i-a733";
+	aliases { serial0 = &uart0; mmc0 = &mmc0; };
+	chosen { stdout-path = "serial0:115200n8"; };
+};
+
+&uart0 { status = "okay"; };
+
+/* Vendor &s_twi0 PMIC bus maps to the A733 always-on R-I2C0 bus.
+ * PL0/PL1 mux comes from the common A733 DT. No IRQ handling staged.
+ */
+&r_i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&r_i2c0_pl_pins>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	axp8191: pmic@36 {
+		compatible = "x-powers,axp8191";
+		reg = <0x36>;
+		/* No interrupt property: IRQ decoding not validated. */
+
+		regulators {
+			reg_dcdc1: dcdc1 {
+				regulator-name = "axp8191-dcdc1";
+				regulator-min-microvolt = <1000000>;
+				regulator-max-microvolt = <3800000>;
+				regulator-always-on;
+			};
+			reg_cldo5: cldo5 {
+				regulator-name = "axp8191-cldo5";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <3400000>;
+				regulator-always-on;
+			};
+			reg_dc1sw2: dc1sw2 {
+				regulator-name = "axp8191-dc1sw2";
+				swin-supply = <&reg_dcdc1>;
+				regulator-always-on;
+			};
+		};
+	};
+};
+
+/* No vendor-only voltage switching properties or UHS modes in M2by. */
+&mmc0 {
+	bus-width = <4>;
+	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6: F is bank 5 */
+	vmmc-supply = <&reg_dc1sw2>;
+	cap-sd-highspeed;
+	no-sdio;
+	no-mmc;
+	max-frequency = <25000000>;
+	status = "okay";
+};
+/* No HDMI, GPU, SDIO or other optional devices activated. */

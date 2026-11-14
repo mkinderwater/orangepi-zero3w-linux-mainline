@@ -1,0 +1,69 @@
+=== AXP8191 permitted writes ===
+63:static const struct regmap_range axp8191_writeable_ranges[] = {
+64-	regmap_reg_range(AXP8191_DCDC_CTL1, AXP8191_DC1OUT_VOL),
+65-	regmap_reg_range(AXP8191_LDO_CTL2, AXP8191_LDO_CTL2),
+66-	regmap_reg_range(AXP8191_CLDO5OUT_VOL, AXP8191_CLDO5OUT_VOL),
+67-};
+68-
+69-static const struct regmap_range axp8191_volatile_ranges[] = {
+70-	regmap_reg_range(AXP8191_IRQ_STATUS1, AXP8191_IRQ_STATUS1 + 3),
+71-};
+72-
+73-static const struct regmap_access_table axp8191_writeable_table = {
+74-	.yes_ranges = axp8191_writeable_ranges,
+75-	.n_yes_ranges = ARRAY_SIZE(axp8191_writeable_ranges),
+76-};
+77-
+78-static const struct regmap_access_table axp8191_volatile_table = {
+79-	.yes_ranges = axp8191_volatile_ranges,
+80-	.n_yes_ranges = ARRAY_SIZE(axp8191_volatile_ranges),
+=== AXP8191 register identifiers ===
+34:#define AXP8191_DCDC_CTL1             0x10
+35:#define AXP8191_DCDC_CTL2             0x11
+36:#define AXP8191_DC1OUT_VOL            0x12
+37:#define AXP8191_LDO_CTL2              0x21
+38:#define AXP8191_CLDO5OUT_VOL          0x33
+39:#define AXP8191_IRQ_ENABLE1           0x40
+40:#define AXP8191_IRQ_STATUS1           0x48
+=== AXP8191 regulator registration ===
+		    AXP22X_IO_ENABLED, AXP22X_IO_DISABLED),
+	AXP_DESC_FIXED(AXP22X, RTC_LDO, "rtc_ldo", "ips", 3000),
+};
+
+/* Stage-1 AXP8191 rails, matched against vendor register definitions.
+ * This does not implement the full PMIC regulator set.
+ */
+static const struct regulator_desc axp8191_regulators[] = {
+	AXP_DESC(AXP8191, DCDC1, "dcdc1", "vin-ps", 1000, 3800, 100,
+		 AXP8191_DC1OUT_VOL, GENMASK(4, 0), AXP8191_DCDC_CTL1, BIT(0)),
+	AXP_DESC(AXP8191, CLDO5, "cldo5", "cldo", 500, 3400, 100,
+		 AXP8191_CLDO5OUT_VOL, GENMASK(4, 0), AXP8191_LDO_CTL2, BIT(7)),
+	AXP_DESC_SW(AXP8191, DC1SW2, "dc1sw2", "swin",
+		    AXP8191_DCDC_CTL2, BIT(4)),
+};
+
+static const struct regulator_desc axp22x_drivevbus_regulator = {
+	.name		= "drivevbus",
+	.supply_name	= "drivevbus",
+	.of_match	= of_match_ptr("drivevbus"),
+	.regulators_node = of_match_ptr("regulators"),
+=== Board constraints ===
+14:&uart0 { status = "okay"; };
+21:	pinctrl-0 = <&r_i2c0_pl_pins>;
+22:	clock-frequency = <100000>;
+23:	status = "okay";
+32:				regulator-name = "axp8191-dcdc1";
+33:				regulator-min-microvolt = <1000000>;
+34:				regulator-max-microvolt = <3800000>;
+35:				regulator-always-on;
+38:				regulator-name = "axp8191-cldo5";
+39:				regulator-min-microvolt = <500000>;
+40:				regulator-max-microvolt = <3400000>;
+41:				regulator-always-on;
+44:				regulator-name = "axp8191-dc1sw2";
+45:				swin-supply = <&reg_dcdc1>;
+46:				regulator-always-on;
+55:	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6: F is bank 5 */
+56:	vmmc-supply = <&reg_dc1sw2>;
+60:	max-frequency = <25000000>;
+61:	status = "okay";
