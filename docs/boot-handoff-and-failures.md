@@ -82,3 +82,9 @@ Keep the exact bootloader, original vendor recovery image, 96 MiB root partition
 **As of this documentation update M2cv has been packaged but not hardware-tested.** No Linux 6.18.19 boot success is claimed.
 
 External references: [Zero 3W working boot script](https://github.com/nickyg666/orangepi-zero3w-mainline/blob/main/reference/boot.cmd), [Zero 3W bring-up notes](https://github.com/nickyg666/orangepi-zero3w-mainline/blob/main/AGENTS.md), [Jonas A733 boot guide](https://github.com/jonas5/Allwinner-A733-kernel/blob/main/A733_BOOT_FIX.md).
+
+## Update: M2cv through M2da hardware results (2026-11-14)
+
+The earlier section above records **pre-test planning** and is superseded for current status by this update. Hardware results: M2cv CONTROL (vendor Linux 6.6.98) reached Debian login; M2cv DIAG and DIRECT (Linux 6.18.19) both remained at the "initializing boot loader" splash; M2cx DIRECT with corrected 24 MHz `&osc` and UART0 PB9/PB10 pinctrl produced the same splash. The compiled 6.18.19 raw Image is 41,064,960 bytes and its header declares a footprint ending at `0x437F0000`, below the relocated DTB at `0x44000000`. M2cy verified the finished image's root command-line construction and two-stage scripts; this does **not** confirm Linux 6.18.19 entry.
+
+M2da BOOTI-RAW-INITRD with the **vendor Linux 6.6.98 kernel** reached a photographed Linux panic at ~3.8 s: `VFS: Unable to mount root fs on unknown-block(0,0)`. The panic proves vendor Linux execution but not the cause of root-mount failure. Because a vendor `bootm` fallback was reportedly retained if `booti` returned, **the panic alone is not decisive proof that raw `booti` succeeded**. Verify the finished command flow or perform an isolated no-fallback test before promoting that claim. Details, test matrix and search terms: [M2da U-Boot booti and VFS panic](orange-pi-zero-3w-uboot-booti-kernel-panic-m2da.md).
