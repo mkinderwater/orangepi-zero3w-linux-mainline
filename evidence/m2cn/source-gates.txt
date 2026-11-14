@@ -1,0 +1,22 @@
+=== source baseline ===
+908869c38e30ef03066387543f3ecf0212d15200
+=== board target ===
+64:dtb-$(CONFIG_ARCH_SUNXI) += sun60i-a733-orangepi-zero3w-m2by.dtb
+=== PMIC source ===
+52:	[AXP8191_ID] = "AXP8191",
+1413:	case AXP8191_ID:
+1488:	if (axp20x->irq > 0 && axp20x->variant != AXP8191_ID) {
+1511:	    axp20x->variant != AXP8191_ID)
+=== R-I2C fallback ===
+		r_i2c0: i2c@7083000 {
+			compatible = "allwinner,sun60i-a733-i2c",
+				     "allwinner,sun8i-v536-i2c",
+				     "allwinner,sun6i-a31-i2c";
+			reg = <0x07083000 0x400>;
+=== PMIC and MMC configuration ===
+CONFIG_I2C_MV64XXX=y
+CONFIG_MFD_AXP20X=y
+CONFIG_MFD_AXP20X_I2C=y
+CONFIG_REGULATOR_AXP20X=y
+CONFIG_MMC_SUNXI=y
+CONFIG_EXT4_FS=y

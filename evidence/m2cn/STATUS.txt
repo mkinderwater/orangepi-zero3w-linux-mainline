@@ -1,0 +1,4 @@
+This is a build reproducibility audit, not proof of Linux 6.18 boot.
+Do not publish its raw diff without reviewing copyright, upstream origin, stale audit modules and host-specific paths.
+Experimental image remains UNARMED. No bootloader failback guarantee from a marker file.
+The vendor 6.6.98 HDMI / Wi-Fi / SSH control was hardware verified separately.

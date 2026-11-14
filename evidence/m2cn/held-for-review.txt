@@ -1,0 +1,16 @@
+arch/arm64/boot/dts/allwinner/sun60i-a733.dtsi.pre-m2ck
+drivers/gpu/drm/Makefile.m2aj-backup
+drivers/gpu/drm/Makefile.m2ak-backup
+drivers/gpu/drm/opi3w-a733/a733_atomic_bridge.c.m2bg-backup
+drivers/gpu/drm/opi3w-a733/a733_drm_lifecycle.c.m2bm-backup
+drivers/gpu/drm/opi3w-a733/a733_hdmi_audit.c.m2az-backup
+drivers/gpu/drm/opi3w-a733/a733_hdmi_audit.c.m2bb-backup
+drivers/gpu/drm/opi3w-a733/a733_kms_objects.c.m2bj-backup
+drivers/gpu/drm/opi3w-a733/a733_kms_objects.c.m2bk-backup
+drivers/gpu/drm/opi3w-m2aa-probe/Makefile
+drivers/gpu/drm/opi3w-m2aa-probe/Makefile.m2ah-backup
+drivers/gpu/drm/opi3w-m2aa-probe/vendor/sunxi_device/hardware/lowlevel_de/de_channel.c.m2ag-backup
+drivers/gpu/drm/opi3w-m2aa-probe/vendor/sunxi_device/hardware/lowlevel_de/de_channel.c.m2ah-backup
+drivers/gpu/drm/opi3w-m2ai/Makefile
+drivers/gpu/drm/opi3w-m2ai/Makefile.m2ai-backup
+drivers/gpu/drm/opi3w-m2ai/vendor/sunxi_device/hardware/lowlevel_de/sunxi_de.c.m2as-backup

@@ -1,0 +1,15 @@
+ M arch/arm64/boot/dts/allwinner/Makefile
+ M drivers/gpu/drm/Kconfig
+ M drivers/gpu/drm/Makefile
+ M drivers/mfd/axp20x-i2c.c
+ M drivers/mfd/axp20x.c
+ M drivers/regulator/axp20x-regulator.c
+ M include/linux/mfd/axp20x.h
+?? arch/arm64/boot/dts/allwinner/sun60i-a733-orangepi-zero3w-m2by.dts
+?? arch/arm64/boot/dts/allwinner/sun60i-a733.dtsi.pre-m2ck
+?? drivers/gpu/drm/Makefile.m2aj-backup
+?? drivers/gpu/drm/Makefile.m2ak-backup
+?? drivers/gpu/drm/opi3w-a733/
+?? drivers/gpu/drm/opi3w-m2aa-probe/
+?? drivers/gpu/drm/opi3w-m2ai-failed/
+?? drivers/gpu/drm/opi3w-m2ai/
