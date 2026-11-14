@@ -1,0 +1,13 @@
+Reported WSL checksums (2026-11-14):
+Linux 6.18 ARM64 Image:
+fbce9a31719eb2c140c240b2800531dfe4ba6e1dc9a69f29f7cdcce9614a5127
+Linux 6.18 experimental Zero 3W m2by.dtb:
+577f128db2e67a7208451413bdd36b5280253e2e98d23382aa4a3bc8568243e2
+Experimental build release:
+6.18.19-00022-g908869c38e30-dirty
+Other comparison repositories inspected in WSL:
+jonas5/Allwinner-A733-kernel: 4fbbef8f60c757cf942bd269fa09a8a2f55ced72
+nickyg666/orangepi-zero3w-mainline: c92d2620a1fad388e2d147be0721f9e42f839c83
+M2cm UNARMED image SHA-256 as reported in conversation:
+41dde0b7790a017bf7e8c75670f6ab07016dd32f8d165ff6bbe23b6fbac907bb
+Validate against the WSL image before treating this checksum as a published release digest.

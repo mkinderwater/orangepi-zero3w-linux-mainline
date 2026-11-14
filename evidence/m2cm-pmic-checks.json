@@ -1,0 +1,13 @@
+{
+  "vendor_dcdc1": true,
+  "vendor_cldo5": true,
+  "vendor_dc1sw2": true,
+  "ours_dcdc1": true,
+  "ours_cldo5": true,
+  "ours_dc1sw2": true,
+  "no_vendor_freq_write": true,
+  "write_whitelist": true,
+  "mmc_vmmc_parent": true,
+  "i2c_mv64xxx": true,
+  "external_reference_present": true
+}

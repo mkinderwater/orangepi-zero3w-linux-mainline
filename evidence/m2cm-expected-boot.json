@@ -1,0 +1,362 @@
+{
+  "boot/.next": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "boot/System.map-6.6.98-sun60iw2": {
+    "sha256": "6e511fe7a5732978f1d37cbe1e5f86b04e9795af5e2aa512d4e86f568f24a5ce"
+  },
+  "boot/boot-m2cl.cmd": {
+    "sha256": "902f355e2f6f3d977b18b3056ec8c74ae1ecf2ecec7914ce7f28c7f6903fcf29"
+  },
+  "boot/boot-m2cl.scr": {
+    "sha256": "eac78c98838444c50f91bc5201bd3190e69f303b987cc3eefd1c4aaf7b10e2ca"
+  },
+  "boot/boot-vendor-original.scr": {
+    "sha256": "569cd7a721cb4cef8c285cfce2c1d61bdef731b824871432092567d58b1635d4"
+  },
+  "boot/boot.bmp": {
+    "sha256": "153b79ab3e92ac86eda498f98b000665afaa23aee3d9de587218cb9576dd3592"
+  },
+  "boot/boot.cmd": {
+    "sha256": "141a90676af16385d26e09e6d7ae51fb2fb2fb53825e94d834c02b1d6f915960"
+  },
+  "boot/boot.scr": {
+    "sha256": "eac78c98838444c50f91bc5201bd3190e69f303b987cc3eefd1c4aaf7b10e2ca"
+  },
+  "boot/config-6.6.98-sun60iw2": {
+    "sha256": "ae50f80a9f46cf06adfd79aa5c754809fc9c5f59d3ded9863ebe0dc783b1e3dc"
+  },
+  "boot/dtb": {
+    "link": "dtb-6.6.98-sun60iw2"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-edp.dtbo": {
+    "sha256": "bb89fc529e25fa8c4c9217d4b03d5063aed05bd1eee7c26008f61b58b7c8b7cb"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-i2c1.dtbo": {
+    "sha256": "642b4b5d7b3bbccdac4f9540ec2a6f99454923c5a83ede7cd4b1111aabecebde"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-i2c4.dtbo": {
+    "sha256": "f958845f4edd8d3ad1173f35753ffd017c2772ded1dd5c164ffb0d0ee29f3587"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-i2c5.dtbo": {
+    "sha256": "2bb0d339c21275fdf81bfeb378d499ad343809a021d6b2318320882850a3fb67"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-lcd.dtbo": {
+    "sha256": "e266667a9e70564299fc253a9bd8a3227b164e9a3c0c57fe184bc6ef7b5826f2"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm1.dtbo": {
+    "sha256": "894ad3b50ddf73117438d2d4d47d73570d6ebfaf51f362b73360cdd8a24a914d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm10.dtbo": {
+    "sha256": "295c647330a2e0e5fc8817489bea4ff177aceb50f98c06eb165f6d558d2f78ac"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm11.dtbo": {
+    "sha256": "6e622905cd9602a43d01448bf4c597843770c5864c6c58821bf057933c47be5d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm12.dtbo": {
+    "sha256": "2c2cfc8510abca307c39beace379af80b8b2b8e09df892ddc747970c9a79e191"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm13.dtbo": {
+    "sha256": "86e96d404ef634b48943e92aab7a20342051a6ee0972d56210c3e82f29832600"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm14.dtbo": {
+    "sha256": "662cf1b1b30b19a039da0d957985de6541fbb33741ba8c3245379571745d1584"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm15.dtbo": {
+    "sha256": "695e9ad53a8eb3247ff309fa70b8affc93edf3829b7e2b43afc3394f7f5fa6c5"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm2.dtbo": {
+    "sha256": "9b85b1d87cac027498288677eab0183c63f39d107eb31658d035ba1393500c0e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm4.dtbo": {
+    "sha256": "d4cb2557f9ee506e2b2a5acd9947d2312caddb11877a25f2f69fadb47ddfcdb7"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm5.dtbo": {
+    "sha256": "f3673e16833fd5365e1c3fb2faa197c8f34071d0f86ad91fd6cb3aba7b628d3d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm6.dtbo": {
+    "sha256": "8fe77c85578458df5ffdd3293239b0fd0bfcb0839fd6b26675a345ce21f9ceb2"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm7.dtbo": {
+    "sha256": "2c56e21ec27123c6f9df9260561d9122b71c38969994780bcfcde47133f2b053"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm8.dtbo": {
+    "sha256": "a3f851df2ec252de604e5b3dc38b0370f7c8d82c42eabf8250a9d19a4a90f628"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-pwm9.dtbo": {
+    "sha256": "94e068b2bb6aac293e31aedb42386964d9a85164e02b227c1c9cd81bc03cc9f0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-spi1-cs0-spidev.dtbo": {
+    "sha256": "9b07106d41a16a1937ed6209195478c89e3bf453e28907793c47786b845efe9d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-spi2-cs0-spidev.dtbo": {
+    "sha256": "93e3fd4d373bae22fe55f38facf2951b5668846f00fa6957242fc4654a9124a5"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-uart2.dtbo": {
+    "sha256": "cecd4287e61ac11d1a13e694b391fe064b9941e564498a630a443d40f93318b3"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-uart3.dtbo": {
+    "sha256": "ad102634c6d66c6e0db7d46bcbe8c1a71f9bd1aa1b589fc48fd67248dabfc5b1"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-uart4.dtbo": {
+    "sha256": "c849606bff458ff742495facba33a36c06e9c2c76913635e4af4630cd213867e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-uart5.dtbo": {
+    "sha256": "758add2d67c5f23d962bc25cf4fe1772517c088cc0e06d777a8c7ac90e6b0e8c"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-uart6.dtbo": {
+    "sha256": "ee4c5c76c7a3614acddce8252e99a49b54241d7c117739637fee954aaf470a53"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun55i-t527-uart7.dtbo": {
+    "sha256": "ee6dc7cb5ee06fe77723eafea7b1592f82567b30d0569d672d9075ef61c7c2e0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-i2c0.dtbo": {
+    "sha256": "678ad1a714e81719dbd31908180bd5f7943c3baec80c3f070a0deff55046164e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-i2c1.dtbo": {
+    "sha256": "642b4b5d7b3bbccdac4f9540ec2a6f99454923c5a83ede7cd4b1111aabecebde"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-i2c2.dtbo": {
+    "sha256": "636dea7556f0110d3fb861873ce79bde8be7936646ac47a97374c8b7b8709658"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-i2c3.dtbo": {
+    "sha256": "44d583d5369a941239bec0497f323afc66e7aff32825724132f32460601aa206"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-lcd.dtbo": {
+    "sha256": "d8a8f748c151736805fcd72a855b2d15b253bda22a7411e79b99a529469e41a3"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-opizero3w-lcd.dtbo": {
+    "sha256": "a9d158b3c971205546e8d3a77363302c6112e5bc1f499e28ae683e373b0a7a4c"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm0.dtbo": {
+    "sha256": "305f2ae25a6ceb14b291ed6258ce580bdc1d36b6845a018e732650cd83f91797"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm1.dtbo": {
+    "sha256": "894ad3b50ddf73117438d2d4d47d73570d6ebfaf51f362b73360cdd8a24a914d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm2.dtbo": {
+    "sha256": "9b85b1d87cac027498288677eab0183c63f39d107eb31658d035ba1393500c0e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm3.dtbo": {
+    "sha256": "971c29c360b91b71f751c4ffe57fba345ac9d3b3f34053a57a2f28f1f9878eeb"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm4.dtbo": {
+    "sha256": "d4cb2557f9ee506e2b2a5acd9947d2312caddb11877a25f2f69fadb47ddfcdb7"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm5.dtbo": {
+    "sha256": "f3673e16833fd5365e1c3fb2faa197c8f34071d0f86ad91fd6cb3aba7b628d3d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm6.dtbo": {
+    "sha256": "8fe77c85578458df5ffdd3293239b0fd0bfcb0839fd6b26675a345ce21f9ceb2"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm7.dtbo": {
+    "sha256": "2c56e21ec27123c6f9df9260561d9122b71c38969994780bcfcde47133f2b053"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm8.dtbo": {
+    "sha256": "a3f851df2ec252de604e5b3dc38b0370f7c8d82c42eabf8250a9d19a4a90f628"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-pwm9.dtbo": {
+    "sha256": "94e068b2bb6aac293e31aedb42386964d9a85164e02b227c1c9cd81bc03cc9f0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-spi3-cs0-cs1-spidev.dtbo": {
+    "sha256": "051e1ae88520d4784b373e758d144975e19201c6d960bf5aecba89dd8a1a0362"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-spwm2.dtbo": {
+    "sha256": "ae108d10341e7447db54ac0a5f11c1c21d887aa23938d221571f083609b2b441"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-uart2.dtbo": {
+    "sha256": "cecd4287e61ac11d1a13e694b391fe064b9941e564498a630a443d40f93318b3"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-uart6.dtbo": {
+    "sha256": "ee4c5c76c7a3614acddce8252e99a49b54241d7c117739637fee954aaf470a53"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-uart7.dtbo": {
+    "sha256": "ee6dc7cb5ee06fe77723eafea7b1592f82567b30d0569d672d9075ef61c7c2e0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-a733-uart8.dtbo": {
+    "sha256": "3e106cdf5dcd2c0c3e5d1de1f25444a5cbbc931925ee1dabf2932a5d55a26465"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-t736-i2c3.dtbo": {
+    "sha256": "44d583d5369a941239bec0497f323afc66e7aff32825724132f32460601aa206"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-t736-lcd.dtbo": {
+    "sha256": "d8a8f748c151736805fcd72a855b2d15b253bda22a7411e79b99a529469e41a3"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-t736-pwm1.dtbo": {
+    "sha256": "a5afef8646bf2038fa9aa170c612a4aff4d797deca38c2f27f76d29bd142e4ea"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-t736-spi4-spidev.dtbo": {
+    "sha256": "f982397d25a7f1b86c91b93803bc1e15baec28817fa5b4681fb9b50cd5026e08"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/overlay/sun60i-t736-uart5.dtbo": {
+    "sha256": "758add2d67c5f23d962bc25cf4fe1772517c088cc0e06d777a8c7ac90e6b0e8c"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a100-allwinner-perf1.dtb": {
+    "sha256": "5f81d5fedf2e28a05214902b5925c1648c34821e375c893b57ecb2dda13af087"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-amarula-relic.dtb": {
+    "sha256": "61e51d6b3ab7303c93e6c5dbb1fd9c383903030a12c9e6ebac79c9e37771eb50"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-bananapi-m64.dtb": {
+    "sha256": "0a83fa72c0777a70dff77fdb67e39cc071d5d02a35b6d451601c55615aa419cc"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-nanopi-a64.dtb": {
+    "sha256": "d9926c70d9d8ad7ee77a1299845163960e24bb4e15f6620ae2cf784036eb389e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-oceanic-5205-5inmfd.dtb": {
+    "sha256": "4c13d41ffbedaedfb9556cbd6bed4b92f85870842ce42b8d7f432bb091035ffa"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-olinuxino-emmc.dtb": {
+    "sha256": "23fb65cbad7bc39a17a9d4c73c1ff381ea33fedcc67fa3bf75e6f950f3d1e58d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-olinuxino.dtb": {
+    "sha256": "75273f25794d24944653dac4b344b53605134fb52134ea5eeb714662d95d835d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-orangepi-win.dtb": {
+    "sha256": "a2273ca12e12bf0374e90accd50303ae5a609a272657581786b88d02b849a546"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pine64-lts.dtb": {
+    "sha256": "20baa7d4438be401cbc7d6e092c22fcc95ec28d3bc673474be8cf897d8fc576c"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pine64-plus.dtb": {
+    "sha256": "327b5a30be33e4b6da8be4ab9e1a9d4ae6b5866074122e69dcf1813c4372fc66"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pine64.dtb": {
+    "sha256": "a92a663813db3ede85919496fc5e339b2d1576fe4c501c12a4fb0b11465a8be3"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pinebook.dtb": {
+    "sha256": "aa5ec28acb32dd40dfe3b7f8ae0eb30f4f5c1acf4cdad7bb39427e06224cda18"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pinephone-1.0.dtb": {
+    "sha256": "845fe2e06f4c79f8319cd5fec50412d5780b23866b810f5594966c77581e22e2"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pinephone-1.1.dtb": {
+    "sha256": "4784ff2c74f642067c819bcb8a8292178d49c7e3c0a6c9ea1c36a58007a44371"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pinephone-1.2.dtb": {
+    "sha256": "6943d95b2b530598e7b1891ae21967c8a32484959bdbe1934673e7e1f1f96f8e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pinetab-early-adopter.dtb": {
+    "sha256": "d56d754602bf35093de63e334c7c1a815f4883d14ed93de6a7eb6233c8587ad7"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-pinetab.dtb": {
+    "sha256": "2dfdcdc255b7be91bcec3c934b52858ca886bb9f93858df6128f15a9693ce6d0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-sopine-baseboard.dtb": {
+    "sha256": "93d85eda9067636e1b71ac5d923c56ff05d47e269f6b21db82d9a2aaada4ecde"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-a64-teres-i.dtb": {
+    "sha256": "fb8cb621ac5bc23f1dc98d8353c8e8286b81d0dd1bdb079d832cbbcb3eb83ec3"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-bananapi-m2-plus-v1.2.dtb": {
+    "sha256": "46c2607c24a59f05660dd09d1d6fed62be379383d55ab598e8664909eb6237b1"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-bananapi-m2-plus.dtb": {
+    "sha256": "b1675e73bed56267600093ff46a79582c0a93978c16579d0e6acfbd766be791f"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-emlid-neutis-n5-devboard.dtb": {
+    "sha256": "86329fd6a811c91f17e28e970a47ac02ac40e873a36b1eaff4a907d3e2a56967"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-libretech-all-h3-cc.dtb": {
+    "sha256": "c07f970a370ffb9ecbdf0dba5d01b90f181e625968940daadbfc3d5032aad4b5"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-libretech-all-h3-it.dtb": {
+    "sha256": "5a3109ec113938b777c04cd37048945bc5967f2073e77179cf1ac00c398d465f"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-libretech-all-h5-cc.dtb": {
+    "sha256": "3658a472efcf73ce1e8d36a88240c65dd6bcccba81d715da1af8c682ee956375"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-nanopi-neo-plus2.dtb": {
+    "sha256": "6a18071074487679dde38b8564e4921e1316422e24026b72eb6844f26f3b319b"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-nanopi-neo2.dtb": {
+    "sha256": "01e69f9c32f2ad20bce6b6934404bb162d28ea4bbaa0d5360c68918e2fe3ae91"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-nanopi-r1s-h5.dtb": {
+    "sha256": "fd88e54626e51bae0166cb24e1f835d68feb7a5d74830b0449f75c00fb1259d9"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-orangepi-pc2.dtb": {
+    "sha256": "1123598a36cef77e2e0b8a0ff80335e49825e7716d680231eec5411dd7b450c8"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-orangepi-prime.dtb": {
+    "sha256": "54770cb5ce1830167be995a580e725544a7f9ae8bf2166787228b4aa501a3903"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-orangepi-zero-plus.dtb": {
+    "sha256": "a1831675eac5d0cdf12c9410aa1354cbf0fe957cc4f9bc344018da360b05e50d"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h5-orangepi-zero-plus2.dtb": {
+    "sha256": "e9dd0efe308cc7c592b8ee6e0c270bd16edf7c125382829cac36b905dbcff4fc"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-beelink-gs1.dtb": {
+    "sha256": "1cfc871e241dcaa621e9868458122ab48730ef74d3a2984e979ab3344977dff0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-orangepi-3.dtb": {
+    "sha256": "f4dbe7941c6ee1d1f5c33cc903ed69454051358bb415fb03d3aeaabbe4aa047b"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-orangepi-lite2.dtb": {
+    "sha256": "759f8bb2b106c2b49cb542004462ad3b271104186cf6c3e60b8eb5241ba4c591"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-orangepi-one-plus.dtb": {
+    "sha256": "65d11946ad31f74403e3e3532b0d5867be05b421a49e0a1c534d2d261dc780b6"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-pine-h64-model-b.dtb": {
+    "sha256": "0f7e5706eb61d4f82af63ebcd6e2acd61c9750767d8dcbcfd5f14fecb1536675"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-pine-h64.dtb": {
+    "sha256": "a0f17a4eb0f11c7efd8f904f4e851a13d728f3d47154e84e4f71c98f6170f304"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-tanix-tx6-mini.dtb": {
+    "sha256": "bf69e8c82d0f13e05c1154bd26fd7310858cc93f980f5b4ead7a3a70ab8f8fc0"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h6-tanix-tx6.dtb": {
+    "sha256": "f0a423dabcceca23f68693bca9409a80aa11e2e2c28694a65501bda1d2453d4e"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h616-orangepi-zero2.dtb": {
+    "sha256": "e9021db3ede3327fa136cfc66f590461607a0e3388b19f6c23cbeefb356aa86f"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h616-x96-mate.dtb": {
+    "sha256": "37e78fca047883fbd0e8e54e24da4124cc7a6c96dd1e69feb88da32514c45b0f"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun50i-h618-orangepi-zero3.dtb": {
+    "sha256": "748d0f33ad3817abdab731bb1acca8b8c449cdf230e0bd70ccc60345a6cc1d30"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun60i-a733-orangepi-4-pro.dtb": {
+    "sha256": "801f03b7ca26506ef64d99e7802f1caf7ff34a8b89b6258ad8596f35da197c59"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun60i-a733-orangepi-zero3w.dtb": {
+    "sha256": "2d21a0b586effa6355b2d59f4134c8bebcc241cf71a62c0996bf2bfad211d064"
+  },
+  "boot/dtb-6.6.98-sun60iw2/allwinner/sun60i-a733-orangepi-zero4.dtb": {
+    "sha256": "03a0c34c306e6117d690e801bd3892be5a7cb6dc37f449d57f1c51f707c477c7"
+  },
+  "boot/initrd.img-6.6.98-sun60iw2": {
+    "sha256": "1ef9e0286d58300563d1724d299ce9762b2da402b1054f420f21025e8bf15168"
+  },
+  "boot/logo.bmp": {
+    "sha256": "96739ee09e816d9428becc0b2150a141929bab997f7dccbe82b4af2c5427c0d5"
+  },
+  "boot/mainline/Image": {
+    "sha256": "fbce9a31719eb2c140c240b2800531dfe4ba6e1dc9a69f29f7cdcce9614a5127"
+  },
+  "boot/mainline/sun60i-a733-orangepi-zero3w.dtb": {
+    "sha256": "577f128db2e67a7208451413bdd36b5280253e2e98d23382aa4a3bc8568243e2"
+  },
+  "boot/orangepiEnv.txt": {
+    "sha256": "59c00b3ac7c4d5964ee7b3138a61060ab4d48d235a132f9b334444d308fcddab"
+  },
+  "boot/orangepi_first_run.txt.template": {
+    "sha256": "d1b8950a6166d6aa13ace446556683159c46b52655e3f92d2a51b4ddde6a9519"
+  },
+  "boot/uImage": {
+    "sha256": "08288d4fee6494507e76bd560a5437ab0030bf94143affe2e6b0d51334029557"
+  },
+  "boot/uInitrd": {
+    "link": "uInitrd-6.6.98-sun60iw2"
+  },
+  "boot/uInitrd-6.6.98-sun60iw2": {
+    "sha256": "ec6f73b1e2ca8181b42ad58766eb69b3ea607fb7576ad66d0ba6263ad6aee0dc"
+  },
+  "boot/vmlinux-6.6.98-sun60iw2": {
+    "sha256": "58c616d26616977d9bc4aef0d362cd3f23ed03fe086c0ad10294e026d097a946"
+  }
+}
