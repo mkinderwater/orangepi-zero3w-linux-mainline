@@ -1,0 +1,315 @@
+diff --git a/arch/arm64/boot/dts/allwinner/Makefile b/arch/arm64/boot/dts/allwinner/Makefile
+index bee8a2b0924d..19168783547d 100644
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -60,3 +60,5 @@ dtb-$(CONFIG_ARCH_SUNXI) += sun55i-h728-x96qpro+.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun55i-t527-avaota-a1.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun55i-t527-orangepi-4a.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun60i-a733-cubie-a7s.dtb
++
++dtb-$(CONFIG_ARCH_SUNXI) += sun60i-a733-orangepi-zero3w-m2by.dtb
+diff --git a/drivers/mfd/axp20x-i2c.c b/drivers/mfd/axp20x-i2c.c
+index 5c93136f977e..e65e26c1ba0d 100644
+--- a/drivers/mfd/axp20x-i2c.c
++++ b/drivers/mfd/axp20x-i2c.c
+@@ -70,6 +70,7 @@ static const struct of_device_id axp20x_i2c_of_match[] = {
+ 	{ .compatible = "x-powers,axp803", .data = (void *)AXP803_ID },
+ 	{ .compatible = "x-powers,axp806", .data = (void *)AXP806_ID },
+ 	{ .compatible = "x-powers,axp15060", .data = (void *)AXP15060_ID },
++	{ .compatible = "x-powers,axp8191", .data = (void *)AXP8191_ID },
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(of, axp20x_i2c_of_match);
+@@ -87,6 +88,7 @@ static const struct i2c_device_id axp20x_i2c_id[] = {
+ 	{ "axp803" },
+ 	{ "axp806" },
+ 	{ "axp15060" },
++	{ "axp8191" },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(i2c, axp20x_i2c_id);
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index c5f0ebae327f..d6d6e2a9e071 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -49,6 +49,35 @@ static const char * const axp20x_model_names[] = {
+ 	[AXP809_ID] = "AXP809",
+ 	[AXP813_ID] = "AXP813",
+ 	[AXP15060_ID] = "AXP15060",
++	[AXP8191_ID] = "AXP8191",
++};
++
++/* Staged AXP8191 support: only 8-bit bank-0 registers are accessible.
++ * No implicit page selection or write to undocumented high registers.
++ */
++/* Initial AXP8191 support: permit only registered boot-rail controls.
++ * 0x10 DCDC1 enable; 0x11 DC1SW2 enable; 0x12 DCDC1 voltage;
++ * 0x21 CLDO5 enable; 0x33 CLDO5 voltage.
++ * No IRQ writes, page switching, workmode or frequency programming.
++ */
++static const struct regmap_range axp8191_writeable_ranges[] = {
++	regmap_reg_range(AXP8191_DCDC_CTL1, AXP8191_DC1OUT_VOL),
++	regmap_reg_range(AXP8191_LDO_CTL2, AXP8191_LDO_CTL2),
++	regmap_reg_range(AXP8191_CLDO5OUT_VOL, AXP8191_CLDO5OUT_VOL),
++};
++
++static const struct regmap_range axp8191_volatile_ranges[] = {
++	regmap_reg_range(AXP8191_IRQ_STATUS1, AXP8191_IRQ_STATUS1 + 3),
++};
++
++static const struct regmap_access_table axp8191_writeable_table = {
++	.yes_ranges = axp8191_writeable_ranges,
++	.n_yes_ranges = ARRAY_SIZE(axp8191_writeable_ranges),
++};
++
++static const struct regmap_access_table axp8191_volatile_table = {
++	.yes_ranges = axp8191_volatile_ranges,
++	.n_yes_ranges = ARRAY_SIZE(axp8191_volatile_ranges),
+ };
+ 
+ static const struct regmap_range axp152_writeable_ranges[] = {
+@@ -390,6 +419,17 @@ static const struct resource axp15060_pek_resources[] = {
+ 	DEFINE_RES_IRQ_NAMED(AXP15060_IRQ_PEK_FAL_EDGE, "PEK_DBF"),
+ };
+ 
++static const struct regmap_config axp8191_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.max_register = 0x7f,
++	.wr_table = &axp8191_writeable_table,
++	.volatile_table = &axp8191_volatile_table,
++	.use_single_read = true,
++	.use_single_write = true,
++	.cache_type = REGCACHE_NONE,
++};
++
+ static const struct regmap_config axp152_regmap_config = {
+ 	.reg_bits	= 8,
+ 	.val_bits	= 8,
+@@ -1230,6 +1270,11 @@ static const struct mfd_cell axp15060_cells[] = {
+ };
+ 
+ /* For boards that don't have IRQ line connected to SOC. */
++/* AXP8191 first-stage registration is limited to three power rails. */
++static const struct mfd_cell axp8191_cells[] = {
++	MFD_CELL_BASIC("axp20x-regulator", NULL, NULL, 0, 1),
++};
++
+ static const struct mfd_cell axp_regulator_only_cells[] = {
+ 	/* PMIC without IRQ line may be secondary PMIC */
+ 	MFD_CELL_BASIC("axp20x-regulator", NULL, NULL, 0, 1),
+@@ -1365,6 +1410,12 @@ int axp20x_match_device(struct axp20x_dev *axp20x)
+ 		 */
+ 		axp20x->regmap_irq_chip = &axp803_regmap_irq_chip;
+ 		break;
++	case AXP8191_ID:
++		axp20x->nr_cells = ARRAY_SIZE(axp8191_cells);
++		axp20x->cells = axp8191_cells;
++		axp20x->regmap_cfg = &axp8191_regmap_config;
++		axp20x->regmap_irq_chip = NULL;
++		break;
+ 	case AXP15060_ID:
+ 		axp20x->nr_cells = ARRAY_SIZE(axp15060_cells);
+ 		axp20x->cells = axp15060_cells;
+@@ -1434,7 +1485,7 @@ int axp20x_device_probe(struct axp20x_dev *axp20x)
+ 	}
+ 
+ 	/* Only if there is an interrupt line connected towards the CPU. */
+-	if (axp20x->irq > 0) {
++	if (axp20x->irq > 0 && axp20x->variant != AXP8191_ID) {
+ 		ret = regmap_add_irq_chip(axp20x->regmap, axp20x->irq,
+ 				IRQF_ONESHOT | IRQF_SHARED | axp20x->irq_flags,
+ 				-1, axp20x->regmap_irq_chip,
+@@ -1451,11 +1502,13 @@ int axp20x_device_probe(struct axp20x_dev *axp20x)
+ 
+ 	if (ret) {
+ 		dev_err(axp20x->dev, "failed to add MFD devices: %d\n", ret);
+-		regmap_del_irq_chip(axp20x->irq, axp20x->regmap_irqc);
++		if (axp20x->regmap_irqc)
++			regmap_del_irq_chip(axp20x->irq, axp20x->regmap_irqc);
+ 		return ret;
+ 	}
+ 
+-	if (axp20x->variant != AXP288_ID)
++	if (axp20x->variant != AXP288_ID &&
++	    axp20x->variant != AXP8191_ID)
+ 		devm_register_power_off_handler(axp20x->dev, axp20x_power_off, axp20x);
+ 
+ 	dev_info(axp20x->dev, "AXP20X driver loaded\n");
+@@ -1467,7 +1520,8 @@ EXPORT_SYMBOL(axp20x_device_probe);
+ void axp20x_device_remove(struct axp20x_dev *axp20x)
+ {
+ 	mfd_remove_devices(axp20x->dev);
+-	regmap_del_irq_chip(axp20x->irq, axp20x->regmap_irqc);
++	if (axp20x->regmap_irqc)
++		regmap_del_irq_chip(axp20x->irq, axp20x->regmap_irqc);
+ }
+ EXPORT_SYMBOL(axp20x_device_remove);
+ 
+diff --git a/drivers/regulator/axp20x-regulator.c b/drivers/regulator/axp20x-regulator.c
+index da891415efc0..2749125856e3 100644
+--- a/drivers/regulator/axp20x-regulator.c
++++ b/drivers/regulator/axp20x-regulator.c
+@@ -711,6 +711,18 @@ static const struct regulator_desc axp22x_regulators[] = {
+ 	AXP_DESC_FIXED(AXP22X, RTC_LDO, "rtc_ldo", "ips", 3000),
+ };
+ 
++/* Stage-1 AXP8191 rails, matched against vendor register definitions.
++ * This does not implement the full PMIC regulator set.
++ */
++static const struct regulator_desc axp8191_regulators[] = {
++	AXP_DESC(AXP8191, DCDC1, "dcdc1", "vin-ps", 1000, 3800, 100,
++		 AXP8191_DC1OUT_VOL, GENMASK(4, 0), AXP8191_DCDC_CTL1, BIT(0)),
++	AXP_DESC(AXP8191, CLDO5, "cldo5", "cldo", 500, 3400, 100,
++		 AXP8191_CLDO5OUT_VOL, GENMASK(4, 0), AXP8191_LDO_CTL2, BIT(7)),
++	AXP_DESC_SW(AXP8191, DC1SW2, "dc1sw2", "swin",
++		    AXP8191_DCDC_CTL2, BIT(4)),
++};
++
+ static const struct regulator_desc axp22x_drivevbus_regulator = {
+ 	.name		= "drivevbus",
+ 	.supply_name	= "drivevbus",
+@@ -1609,6 +1621,10 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
+ 		drivevbus = of_property_read_bool(pdev->dev.parent->of_node,
+ 						  "x-powers,drive-vbus-en");
+ 		break;
++	case AXP8191_ID:
++		regulators = axp8191_regulators;
++		nregulators = AXP8191_REG_ID_MAX;
++		break;
+ 	case AXP15060_ID:
+ 		regulators = axp15060_regulators;
+ 		nregulators = AXP15060_REG_ID_MAX;
+@@ -1619,8 +1635,9 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
+ 		return -EINVAL;
+ 	}
+ 
+-	/* This only sets the dcdc freq. Ignore any errors */
+-	axp20x_regulator_parse_dt(pdev);
++	/* AXP8191 frequency programming is not validated: leave boot state intact. */
++	if (axp20x->variant != AXP8191_ID)
++		axp20x_regulator_parse_dt(pdev);
+ 
+ 	for (i = 0; i < nregulators; i++) {
+ 		const struct regulator_desc *desc = &regulators[i];
+@@ -1695,13 +1712,14 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
+ 			return PTR_ERR(rdev);
+ 		}
+ 
+-		ret = of_property_read_u32(rdev->dev.of_node,
+-					   "x-powers,dcdc-workmode",
+-					   &workmode);
+-		if (!ret) {
+-			if (axp20x_set_dcdc_workmode(rdev, i, workmode))
++		/* AXP8191 workmode writes are unverified; retain bootloader state. */
++		if (axp20x->variant != AXP8191_ID) {
++			ret = of_property_read_u32(rdev->dev.of_node,
++						   "x-powers,dcdc-workmode",
++						   &workmode);
++			if (!ret && axp20x_set_dcdc_workmode(rdev, i, workmode))
+ 				dev_err(&pdev->dev, "Failed to set workmode on %s\n",
+-					rdev->desc->name);
++						rdev->desc->name);
+ 		}
+ 
+ 		/*
+diff --git a/include/linux/mfd/axp20x.h b/include/linux/mfd/axp20x.h
+index 3c5aecf1d4b5..a5e935379651 100644
+--- a/include/linux/mfd/axp20x.h
++++ b/include/linux/mfd/axp20x.h
+@@ -26,9 +26,26 @@ enum axp20x_variants {
+ 	AXP809_ID,
+ 	AXP813_ID,
+ 	AXP15060_ID,
++	AXP8191_ID,
+ 	NR_AXP20X_VARIANTS,
+ };
+ 
++/* AXP8191: low register bank only. Extended address mapping is unresolved. */
++#define AXP8191_DCDC_CTL1             0x10
++#define AXP8191_DCDC_CTL2             0x11
++#define AXP8191_DC1OUT_VOL            0x12
++#define AXP8191_LDO_CTL2              0x21
++#define AXP8191_CLDO5OUT_VOL          0x33
++#define AXP8191_IRQ_ENABLE1           0x40
++#define AXP8191_IRQ_STATUS1           0x48
++
++enum axp8191_regulator_ids {
++	AXP8191_DCDC1 = 0,
++	AXP8191_CLDO5,
++	AXP8191_DC1SW2,
++	AXP8191_REG_ID_MAX,
++};
++
+ #define AXP192_DATACACHE(m)		(0x06 + (m))
+ #define AXP20X_DATACACHE(m)		(0x04 + (m))
+ 
+diff --git a/arch/arm64/boot/dts/allwinner/sun60i-a733-orangepi-zero3w-m2by.dts b/arch/arm64/boot/dts/allwinner/sun60i-a733-orangepi-zero3w-m2by.dts
+new file mode 100644
+index 000000000000..fa2aca8d709b
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun60i-a733-orangepi-zero3w-m2by.dts
+@@ -0,0 +1,63 @@
++// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
++// M2by: experimental build validation only, NOT approved for hardware boot.
++/dts-v1/;
++#include <dt-bindings/gpio/gpio.h>
++#include "sun60i-a733.dtsi"
++
++/ {
++	model = "Orange Pi Zero 3W (M2by build validation)";
++	compatible = "xunlong,orangepi-zero3w", "allwinner,sun60i-a733";
++	aliases { serial0 = &uart0; mmc0 = &mmc0; };
++	chosen { stdout-path = "serial0:115200n8"; };
++};
++
++&uart0 { status = "okay"; };
++
++/* Vendor &s_twi0 PMIC bus maps to the A733 always-on R-I2C0 bus.
++ * PL0/PL1 mux comes from the common A733 DT. No IRQ handling staged.
++ */
++&r_i2c0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&r_i2c0_pl_pins>;
++	clock-frequency = <100000>;
++	status = "okay";
++
++	axp8191: pmic@36 {
++		compatible = "x-powers,axp8191";
++		reg = <0x36>;
++		/* No interrupt property: IRQ decoding not validated. */
++
++		regulators {
++			reg_dcdc1: dcdc1 {
++				regulator-name = "axp8191-dcdc1";
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <3800000>;
++				regulator-always-on;
++			};
++			reg_cldo5: cldo5 {
++				regulator-name = "axp8191-cldo5";
++				regulator-min-microvolt = <500000>;
++				regulator-max-microvolt = <3400000>;
++				regulator-always-on;
++			};
++			reg_dc1sw2: dc1sw2 {
++				regulator-name = "axp8191-dc1sw2";
++				swin-supply = <&reg_dcdc1>;
++				regulator-always-on;
++			};
++		};
++	};
++};
++
++/* No vendor-only voltage switching properties or UHS modes in M2by. */
++&mmc0 {
++	bus-width = <4>;
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>; /* PF6: F is bank 5 */
++	vmmc-supply = <&reg_dc1sw2>;
++	cap-sd-highspeed;
++	no-sdio;
++	no-mmc;
++	max-frequency = <25000000>;
++	status = "okay";
++};
++/* No HDMI, GPU, SDIO or other optional devices activated. */
