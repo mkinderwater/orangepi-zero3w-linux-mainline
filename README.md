@@ -5,6 +5,12 @@
 Board: Orange Pi Zero 3W, Allwinner A733 (1 GB tested with the separate vendor image project).
 Target: Linux 6.18.19, upstream-oriented drivers, native DRM HDMI, PowerVR GPU with unmodified Mesa.
 
+## Latest hardware findings (2026-11-14)
+
+**Linux 6.18.19 still has no confirmed hardware boot.** M2cv CONTROL (vendor Linux 6.6.98) reached Debian login, while M2cv DIAG, M2cv DIRECT and M2cx DIRECT remained at the Orange Pi "initializing boot loader" splash. The M2cx DTB corrections (24 MHz root oscillator and UART0 PB9/PB10 pinctrl) are build-verified but did not change the hardware outcome.
+
+**M2da vendor-kernel handoff experiment:** the vendor 6.6.98 kernel produced a photographed Linux VFS panic at ~3.8 s: `VFS: Unable to mount root fs on unknown-block(0,0)`. This proves vendor Linux executes in that test image, but a retained vendor `bootm` fallback means it does not conclusively prove that `booti` was responsible. See the [searchable M2da boot/panic investigation](docs/orange-pi-zero-3w-uboot-booti-kernel-panic-m2da.md) and [bootloader history](docs/boot-handoff-and-failures.md).
+
 ## Verified
 
 - The [vendor-kernel Debian 13 image builder](https://github.com/mkinderwater/opi-3w-wbuild) produced a working image, including hardware-tested Wi-Fi, SSH and GPU compute.
