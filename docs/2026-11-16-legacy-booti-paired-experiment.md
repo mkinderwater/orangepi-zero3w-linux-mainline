@@ -100,3 +100,16 @@ Fix committed `809471f`: parse and validate the script image header (`Linux/ARM/
 **The SHA mismatch is separate and still unresolved.** After `git pull --ff-only`, rerun the vendor profile command unchanged, and record all lines beginning `STAGE2_SOURCE_HASH_MISMATCH` including `expected:`, `observed:`, and parsed script commands. The tool should continue to fail closed until we reconcile the per-file expected SHA against the exact donor bytes and proven script lineage.
 
 If the original donor copy is already mounted or changed, preserve and audit it rather than relaxing the check or accepting a guessed hash.
+
+## 2026-11-16 verified cause of first vendor-profile stop
+
+The improved parser printed the complete observed VBI donor script SHA256:
+`ec7c2338fc654260868af803c60f57ac62148e2fa7cf18d1446efd3ad2b5ad24`.
+
+This **exactly matches** the already pinned, hardware-qualified vendor-stage2 SHA recorded in `diagnostics/build-vbi-pid1-control.py`. The new paired builder accidentally truncated the reference constant by omitting `b5` near the end:
+- Incorrect: `ec7c2338fc654260868af803c60f57ac62148e2fa7cf18d1446efd3ad24`
+- Correct: `ec7c2338fc654260868af803c60f57ac62148e2fa7cf18d1446efd3ad2b5ad24`
+
+The script text shows initrd `load`, immediate `setenv ... ${filesize}`, kernel load and original `booti kernel ramdisk:size fdt`. There is no verified U-Boot problem in this failure. Commit `badab45` restores **the known-good reference hash**, without bypassing checks or modifying the kernel, donor, image contents or test design.
+
+**Next:** `git pull --ff-only`, re-run the same `--profile vendor` command and follow the existing vendor hardware control gate. As of this note, the new image build and physical legacy boot are still unverified.
