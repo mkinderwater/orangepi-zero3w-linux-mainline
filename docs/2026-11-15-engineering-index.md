@@ -10,6 +10,7 @@ Evidence cutoff: 2026-11-15. Maintained alongside the reproducible 6.6.98 work o
 | Clock units, MHz definitions, actual source settings and experiment options | [clock and frequency reference](2026-11-15-clock-frequency-reference.md) |
 | Reviewed Git resources with prioritized alternatives for 6.6/6.18, DTS, PMIC, HDMI and boot | [resource review and options](2026-11-15-resource-review-and-options.md) |
 | Current hardware test matrix | [experiments and acceptance](2026-11-15-hardware-matrix.md) |
+| **Other projects vs our actual evidence (fact, reported result, unknown)** | [counterpart evidence review](2026-11-15-counterpart-evidence-review.md) |
 | Source commits, branches, external work | [sources and resource map](2026-11-15-source-provenance.md) |
 | Bootloader, U-Boot, boot scripts and memory addresses | [boot chain and handoff](2026-11-15-boot-chain.md) |
 | Compiled/live device tree, board identity, RAM and HDMI | [DTS/DTB findings](2026-11-15-dts-dtb.md) |
