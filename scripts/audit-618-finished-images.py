@@ -9,6 +9,7 @@ import argparse
 import difflib
 import hashlib
 import json
+import posixpath
 import re
 import subprocess
 import tempfile
@@ -70,21 +71,52 @@ def discover(dev):
     return sorted(paths)
 
 def extract(dev, src, dst):
-    # Do not parse filesystem structures manually. debugfs reads the ext4
-    # file without altering journal, inode, or allocation state.
-    stat = debugfs(dev, "stat " + src, check=False)
-    if "not found" in stat.stderr.lower() or "File not found" in stat.stdout:
-        return None
-    match = re.search(r"Size:\s*(\d+)", stat.stdout)
-    if not match:
-        return None
-    size = int(match.group(1))
+    # debugfs dump does not follow inline (fast) ext4 symlinks.
+    # Resolve symlinks inside the image, preserving the original link names.
+    current = src
+    visited = set()
+    chain = []
+    for _ in range(16):
+        if current in visited:
+            raise RuntimeError(f"Symlink cycle at {src}: {chain}")
+        visited.add(current)
+        stat = debugfs(dev, "stat " + current, check=False)
+        if "not found" in stat.stderr.lower() or "File not found" in stat.stdout:
+            if not chain:
+                return None
+            raise RuntimeError(f"Broken symlink: {src} -> {current}")
+        match = re.search(r"Size:\s*(\d+)", stat.stdout)
+        if not match:
+            raise RuntimeError(f"Cannot read inode size: {current}")
+        size = int(match.group(1))
+        if "Type: symlink" not in stat.stdout:
+            if "Type: regular" not in stat.stdout:
+                return {"type": "nonregular", "resolved_path": current}
+            break
+        m = re.search(r'Fast link dest:\s*"([^"]+)"', stat.stdout)
+        if not m:
+            raise RuntimeError(f"Unsupported non-fast symlink at {current}")
+        link = m.group(1)
+        # Absolute symlinks refer to the image filesystem root.
+        joined = link if link.startswith("/") else posixpath.join(posixpath.dirname(current), link)
+        nextpath = posixpath.normpath(joined)
+        if not nextpath.startswith("/"):
+            raise RuntimeError(f"Symlink left filesystem root: {current}")
+        chain.append({"path": current, "target": link})
+        current = nextpath
+    else:
+        raise RuntimeError(f"Too many symlink hops for {src}")
+    metadata = {"size": size, "type": "regular", "resolved_path": current}
+    if chain:
+        metadata["symlink_chain"] = chain
     if size > MAX_EXTRACT:
-        return {"size": size, "skipped": "oversize"}
-    r = debugfs(dev, "dump " + src + " " + str(dst), check=False)
+        metadata["skipped"] = "oversize"
+        return metadata
+    r = debugfs(dev, "dump " + current + " " + str(dst), check=False)
     if r.returncode or not dst.is_file() or dst.stat().st_size != size:
-        raise RuntimeError(f"Cannot extract {src}: {r.stderr.strip()}")
-    return {"size": size, "sha256": sha256(dst)}
+        raise RuntimeError(f"Cannot extract {src} (resolved {current}): {r.stderr.strip()}")
+    metadata["sha256"] = sha256(dst)
+    return metadata
 
 def decode_script(path, output):
     r = cmd("dumpimage", "-T", "script", "-p", "0", "-o",
