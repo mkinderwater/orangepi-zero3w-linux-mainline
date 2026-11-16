@@ -81,12 +81,27 @@ def check(root, name, digest):
 
 def script_payload(path):
     raw = path.read_bytes()
-    if len(raw) < 64 or raw[:4] != bytes.fromhex("27051956"):
+    if len(raw) < 72 or raw[:4] != bytes.fromhex("27051956"):
         raise RuntimeError("Expected U-Boot legacy script header")
     n = struct.unpack_from(">I", raw, 12)[0]
-    if n <= 0 or len(raw) != n + 64:
+    if n <= 8 or len(raw) != n + 64:
         raise RuntimeError("Legacy script header length mismatch")
-    return raw[64:].rstrip(b"\x00").decode("utf-8")
+    # Legacy header: os=5 (Linux), arch=2 (ARM), type=6 (script), comp=0.
+    # mkimage -T script prepends a MULTI-IMAGE LENGTH TABLE to the payload:
+    #   BE32 script_length, BE32 0 (terminator), then script text (4B padded).
+    # The original parser decoded at raw[64], treating the binary length
+    # table (e.g. 00 00 0b b8) as UTF-8 and failing on 0xb8.
+    if raw[28:32] != bytes((5, 2, 6, 0)):
+        raise RuntimeError(f"Unexpected script OS/arch/type/compression: {raw[28:32].hex()}")
+    data = raw[64:]
+    script_len, terminator = struct.unpack_from(">II", data, 0)
+    if terminator != 0 or script_len <= 0 or script_len > n - 8:
+        raise RuntimeError("Legacy script length table is invalid")
+    suffix = data[8 + script_len:]
+    if len(suffix) > 3 or any(suffix):
+        raise RuntimeError("Unexpected nonzero padding after script contents")
+    body = data[8:8 + script_len].rstrip(b"\x00")
+    return body.decode("utf-8")
 
 def validate_source_script(path, cfg):
     expected = cfg["stage2"]
