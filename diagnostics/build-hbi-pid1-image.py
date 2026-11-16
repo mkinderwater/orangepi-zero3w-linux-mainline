@@ -12,6 +12,8 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import importlib
+import sys
 
 SOURCE_SHA = "6604ba2427c918c893880fcb8f44b8733f1c3e74b5acf91454f77c62e55c88f5"
 SOURCE_INITRD_SHA = "d647e0ce4a0c07408ad46a230d9402b4782936b86f5c22e0992e2587bf3ec9fd"
@@ -24,6 +26,8 @@ FILE_HASHES = {
 }
 INITRD = "boot/mainline/hybrid-0.2.7-vbi/initrd.img-6.18.19-opi3w-hybrid-0.2.7"
 FIRMWARE_RESERVED_BYTES = 32 * 1024 * 1024
+# Pinned upstream boot normalizer, not a reimplementation.
+BOOT_ALLOCATOR_SHA = '1e8027393d07c5fc56955403c20df238dbe1b3f4'
 
 def run(*argv, check=True):
     return subprocess.run(argv, check=check, text=True, capture_output=True)
@@ -63,12 +67,18 @@ def main():
     ap.add_argument("--source", type=Path, required=True)
     ap.add_argument("--probe", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
+    ap.add_argument("--wbuild-scripts", type=Path, required=True,
+                    help="directory with pinned opi-3w-wbuild scripts/boot_allocation.py")
     args = ap.parse_args()
     source, probe, out = (p.resolve() for p in (args.source, args.probe, args.output))
     if os.geteuid() != 0:
         ap.error("must run as root")
     if source == out or not source.is_file() or not probe.is_file() or out.exists():
         ap.error("source and probe must exist, output must be new and distinct")
+    scripts = args.wbuild_scripts.resolve()
+    require_hash(scripts / "boot_allocation.py", BOOT_ALLOCATOR_SHA)
+    sys.path.insert(0, str(scripts))
+    allocator = importlib.import_module("boot_allocation")
     require_hash(source, SOURCE_SHA)
     # Pin the exact known full donor, then independently require the entire
     # reserved 32 MiB to remain byte-for-byte identical after image assembly.
@@ -122,7 +132,28 @@ def main():
             os.chmod(stage, st.st_mode & 0o7777)
             os.chown(stage, st.st_uid, st.st_gid)
             os.replace(stage, dest)
-            verify(root, sha(probe))
+            probe_sha = sha(probe)
+            verify(root, probe_sha)
+            # Proven mounted-ext4 normalization from opi-3w-wbuild.
+            # It snapshots all /boot metadata, preserves symlinks and hardlinks,
+            # preallocates/re-writes full bytes including zeros, checks SEEK_HOLE,
+            # and verifies the complete snapshot again.
+            normalized = allocator.dense_boot(root)
+            verify(root, probe_sha)
+            if not normalized:
+                raise RuntimeError("No regular boot files normalized")
+            audit = {
+                "schema": 1,
+                "allocator_sha256": BOOT_ALLOCATOR_SHA,
+                "all_regular_boot_files_dense": True,
+                "files": normalized,
+                "probe_sha256": probe_sha,
+                "status": "OFFLINE_NORMALIZATION_ONLY"
+            }
+            # Keep audit outside the image, so nothing under /boot changes
+            # after the normalizer and before final filesystem verification.
+            allocation_audit = Path(str(out) + ".boot-allocation.json")
+            allocation_audit.write_text(json.dumps(audit, indent=2) + "\n")
             os.sync()
             run("umount", str(root))
             mounted = False
@@ -155,6 +186,8 @@ def main():
         "retained_file_sha256": FILE_HASHES,
         "partition_start": 65536,
         "partition_sectors": 8577024,
+        "boot_allocation_audit": str(allocation_audit),
+        "allocator_sha256": BOOT_ALLOCATOR_SHA,
         "warning": "Output needs independent read-only filesystem audit and flash hardware tests; missing UART marker inconclusive",
     }
     manifest = Path(str(out) + ".audit.json")
