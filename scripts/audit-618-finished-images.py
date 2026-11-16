@@ -75,7 +75,7 @@ def extract(dev, src, dst):
     stat = debugfs(dev, "stat " + src, check=False)
     if "not found" in stat.stderr.lower() or "File not found" in stat.stdout:
         return None
-    match = re.search(r"Size:\\s*(\\d+)", stat.stdout)
+    match = re.search(r"Size:\s*(\d+)", stat.stdout)
     if not match:
         return None
     size = int(match.group(1))
@@ -91,7 +91,7 @@ def decode_script(path, output):
             str(output), str(path), check=False)
     if r.returncode:
         return {"error": r.stderr.strip()[:300]}
-    raw = output.read_bytes().rstrip(b"\\x00")
+    raw = output.read_bytes().rstrip(bytes([0]))
     return {"decoded_sha256": hashlib.sha256(raw).hexdigest(),
             "text": raw.decode("utf-8", errors="replace")}
 
