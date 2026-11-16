@@ -45,36 +45,47 @@ else:
         raise SystemExit('STOP: identity DTS unexpectedly changed')
 print('DT_SOURCE_VALIDATED:'+mode)
 PY
-# Keep Linux's pinned tree pristine. Apply the host Make 4.4 compatibility
-# adjustment only in the disposable build worktree, and audit both diffs.
+# Undo the unsuccessful GNU Make grouped-target experiment in the disposable
+# worktree. Preserve pinned vendor source. Fix the verified malformed Kconfig
+# reference instead; this avoids the phantom auto.conf dependency.
 python3 - "$TREE" "$MODE" "$DTS_REL" <<'PY'
 import subprocess,sys
 from pathlib import Path
 root,mode,dts=Path(sys.argv[1]),sys.argv[2],sys.argv[3]
 mk=root/'Makefile'
-old='%/config/auto.conf %/config/auto.conf.cmd %/generated/autoconf.h %/generated/rustc_cfg: $(KCONFIG_CONFIG)'
-new='%/config/auto.conf %/config/auto.conf.cmd %/generated/autoconf.h %/generated/rustc_cfg &: $(KCONFIG_CONFIG)'
+original='%/config/auto.conf %/config/auto.conf.cmd %/generated/autoconf.h %/generated/rustc_cfg: $(KCONFIG_CONFIG)'
+grouped='%/config/auto.conf %/config/auto.conf.cmd %/generated/autoconf.h %/generated/rustc_cfg &: $(KCONFIG_CONFIG)'
 s=mk.read_text()
-if s.count(old)==1 and new not in s:
-    mk.write_text(s.replace(old,new,1))
-elif s.count(new)!=1 or old in s:
-    raise SystemExit('STOP: unexpected Kbuild rule')
+if s.count(grouped)==1 and original not in s:
+    mk.write_text(s.replace(grouped,original,1))
+elif s.count(original)!=1 or grouped in s:
+    raise SystemExit('STOP: unexpected kernel Makefile state')
+kpath='bsp/drivers/input/ctp/Kconfig'
+kp=root/kpath
+bad='source "bsp/drivers/input/ctp/gt9xx_secondary//Kconfig"'
+good='source "bsp/drivers/input/ctp/gt9xx_secondary/Kconfig"'
+s=kp.read_text()
+if s.count(bad)==1 and good not in s:
+    kp.write_text(s.replace(bad,good,1))
+elif s.count(good)!=1 or bad in s:
+    raise SystemExit('STOP: unexpected touchscreen Kconfig source')
+assert (root/'bsp/drivers/input/ctp/gt9xx_secondary/Kconfig').is_file(), 'STOP: target Kconfig absent'
 changed=subprocess.check_output(['git','-C',str(root),'diff','--name-only'],text=True).splitlines()
-expected=['Makefile'] if mode=='control' else ['Makefile',dts]
+expected=[kpath] if mode=='control' else [kpath,dts]
 if sorted(changed)!=sorted(expected):
-    raise SystemExit(f'STOP: unexpected tracked modifications: {changed}')
-diff=subprocess.check_output(['git','-C',str(root),'diff','--','Makefile'],text=True)
-removed=[line for line in diff.splitlines() if line.startswith('-') and not line.startswith('---')]
-added=[line for line in diff.splitlines() if line.startswith('+') and not line.startswith('+++')]
-if removed!=['-'+old] or added!=['+'+new]:
-    raise SystemExit('STOP: Kbuild compatibility patch differs')
+    raise SystemExit(f'STOP: unexpected tracked changes: {changed}')
+diff=subprocess.check_output(['git','-C',str(root),'diff','--',kpath],text=True)
+removed=[x for x in diff.splitlines() if x.startswith('-') and not x.startswith('---')]
+added=[x for x in diff.splitlines() if x.startswith('+') and not x.startswith('+++')]
+if removed!=['-'+bad] or added!=['+'+good]:
+    raise SystemExit('STOP: Kconfig repair diff differs')
 if mode=='identity':
-    patch=subprocess.check_output(['git','-C',str(root),'diff','--',dts],text=True)
-    expected_old='compatible = "xunlong,orangepi-4-pro", "arm,sun60iw2p1";'
-    expected_new='compatible = "xunlong,orangepi-zero3w", "arm,sun60iw2p1";'
-    if patch.count('-\t'+expected_old)!=1 or patch.count('+\t'+expected_new)!=1:
+    diff=subprocess.check_output(['git','-C',str(root),'diff','--',dts],text=True)
+    old='compatible = "xunlong,orangepi-4-pro", "arm,sun60iw2p1";'
+    new='compatible = "xunlong,orangepi-zero3w", "arm,sun60iw2p1";'
+    if diff.count('-\t'+old)!=1 or diff.count('+\t'+new)!=1:
         raise SystemExit('STOP: identity DTS diff differs')
-print('GROUPED_KBUILD_RULE_AND_SOURCE_DIFF_VERIFIED')
+print('KCONFIG_PATH_REPAIRED_EXACT_DIFF_VERIFIED')
 PY
 mkdir -p "$OBJ"
 if [[ ! -f "$OBJ/.config" ]]; then
@@ -103,15 +114,15 @@ mkdir -p "$OUT"
 cp "$IMAGE" "$OUT/Image"
 cp "$DTB" "$OUT/sun60i-a733-orangepi-zero3w.dtb"
 git -C "$TREE" diff -- "$DTS_REL" > "$OUT/dts.patch"
-git -C "$TREE" diff -- Makefile > "$OUT/kbuild-make-compat.patch"
+git -C "$TREE" diff -- bsp/drivers/input/ctp/Kconfig > "$OUT/kconfig-path.patch"
 {
   echo "SOURCE_COMMIT=$PIN"
   echo "MODE=$MODE"
   echo "SOURCE=$TREE"
   echo "BUILD=$OBJ"
-  echo "KBUILD_COMPAT=GNU_MAKE_GROUPED_TARGET_SYNC"
+  echo "KCONFIG_REPAIR=gt9xx_secondary_double_slash"
   echo "KERNEL_VERSION=$(make -s -C "$TREE" O="$OBJ" ARCH=arm64 kernelrelease)"
   sha256sum "$WORK_ROOT/vendor-a733.config" "$OBJ/.config" "$TREE/$DTS_REL" "$IMAGE" "$DTB"
 } > "$OUT/build-manifest.txt"
-(cd "$OUT" && sha256sum Image sun60i-a733-orangepi-zero3w.dtb dts.patch kbuild-make-compat.patch build-manifest.txt > SHA256SUMS)
+(cd "$OUT" && sha256sum Image sun60i-a733-orangepi-zero3w.dtb dts.patch kconfig-path.patch build-manifest.txt > SHA256SUMS)
 echo "BUILT_OFFLINE_NOT_FLASHABLE_NOT_HARDWARE_TESTED: $OUT"
