@@ -127,6 +127,24 @@ def decode_script(path, output):
     return {"decoded_sha256": hashlib.sha256(raw).hexdigest(),
             "text": raw.decode("utf-8", errors="replace")}
 
+def referenced_boot_paths(script_text):
+    """Extract literal /boot-relative paths from vendor U-Boot load commands."""
+    paths = set()
+    for line in script_text.splitlines():
+        line = line.strip()
+        if not line.startswith("load "):
+            continue
+        # Only explicit references after \${prefix}; dynamic paths are retained
+        # in the decoded script but cannot be resolved without live printenv.
+        m = re.search(r"\$\{prefix\}([A-Za-z0-9_./+-]+)", line)
+        if not m:
+            continue
+        path = posixpath.normpath("/boot/" + m.group(1))
+        if not path.startswith("/boot/"):
+            raise RuntimeError("Script path escapes /boot")
+        paths.add(path)
+    return paths
+
 def inspect(label, path, dest):
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -166,15 +184,33 @@ def inspect(label, path, dest):
                   "boot_files": {}, "scripts": {}}
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
-            for idx, name in enumerate(discover(dev)):
+            pending = sorted(discover(dev))
+            processed = set()
+            idx = 0
+            while pending:
+                name = pending.pop(0)
+                if name in processed:
+                    continue
+                processed.add(name)
                 target = tmp / ("file_" + str(idx))
+                idx += 1
                 meta = extract(dev, name, target)
                 if meta is None:
+                    # Fail closed for literal paths referenced by decoded U-Boot scripts.
+                    if name in record.get("referenced_paths", []):
+                        raise RuntimeError(f"Boot script references missing file: {name}")
                     continue
                 record["boot_files"][name] = meta
                 if name.endswith(".scr") and "sha256" in meta:
                     decoded = decode_script(target, tmp / ("decoded_" + str(idx)))
                     record["scripts"][name] = decoded
+                    if "text" in decoded:
+                        new_paths = referenced_boot_paths(decoded["text"])
+                        refs = set(record.get("referenced_paths", []))
+                        refs.update(new_paths)
+                        record["referenced_paths"] = sorted(refs)
+                        pending.extend(sorted(new_paths - processed))
+                        pending.sort()
         return record
     finally:
         for dev in reversed(devices):
