@@ -89,8 +89,28 @@ def script_payload(path):
     return raw[64:].rstrip(b"\x00").decode("utf-8")
 
 def validate_source_script(path, cfg):
-    if sha(path) != cfg["stage2"]:
-        raise RuntimeError("Second-stage source hash changed")
+    expected = cfg["stage2"]
+    actual = sha(path)
+    if actual != expected:
+        # Fail closed. A donor image SHA match does not mean this individual
+        # file is the script expected by our pinned per-file manifest.
+        # Show both digests and independently inspect the payload, without
+        # accepting the alternate digest or patching unknown U-Boot source.
+        print("STAGE2_SOURCE_HASH_MISMATCH", file=sys.stderr)
+        print(f"  path:     {path}", file=sys.stderr)
+        print(f"  expected: {expected}", file=sys.stderr)
+        print(f"  observed: {actual}", file=sys.stderr)
+        try:
+            body = script_payload(path)
+            for index, line in enumerate(body.splitlines(), 1):
+                if any(token in line for token in (
+                    "booti ", "bootm ", "initrd", "filesize",
+                    "fdt resize", "env import", "kernel_addr_r",
+                )):
+                    print(f"  script line {index}: {line}", file=sys.stderr)
+        except Exception as exc:
+            print(f"  script header/payload parse failed: {exc}", file=sys.stderr)
+        raise RuntimeError("Source second-stage script SHA256 mismatch; no payload change authorized")
     body = script_payload(path)
     if body.count(OLD) != 1 or NEW in body:
         raise RuntimeError("Unexpected booti invocation")
