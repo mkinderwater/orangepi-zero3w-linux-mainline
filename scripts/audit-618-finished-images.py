@@ -139,6 +139,9 @@ def referenced_boot_paths(script_text):
         m = re.search(r"\$\{prefix\}([A-Za-z0-9_./+-]+)", line)
         if not m:
             continue
+        # Ignore dynamic file names like dtb/${fdtfile} and overlays.
+        if line[m.end():].startswith("${"):
+            continue
         path = posixpath.normpath("/boot/" + m.group(1))
         if not path.startswith("/boot/"):
             raise RuntimeError("Script path escapes /boot")
