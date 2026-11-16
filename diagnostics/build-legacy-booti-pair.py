@@ -35,7 +35,7 @@ NEW = "booti " + KERNEL + " " + RAMDISK + " " + FDT
 PROFILES = {
     "vendor": {
         "image": VBI_SHA,
-        "stage2": "ec7c2338fc654260868af803c60f57ac62148e2fa7cf18d1446efd3ad24",
+        "stage2": "ec7c2338fc654260868af803c60f57ac62148e2fa7cf18d1446efd3ad2b5ad24",
         "initrd": "boot/mainline/verified-vendor-initrd.gz",
         "initrd_sha": "1ef9e0286d58300563d1724d299ce9762b2da402b1054f420f21025e8bf15168",
         "kernel": "boot/mainline/verified-vendor-Image",
