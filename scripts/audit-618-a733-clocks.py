@@ -203,13 +203,13 @@ def main():
     (out / "clock-audit.json").write_text(json.dumps(report, indent=2) + "\n")
     md = [
         "# A733 clock source audit, Linux 6.18.19 hybrid 0.2.7",
-        "", f"Source: \`{src}\`",
-        f"Configuration SHA256: \`{report['config_sha256']}\`",
+        "", f"Source: `{src}`",
+        f"Configuration SHA256: `{report['config_sha256']}`",
         f"Source files inspected: {scanned} (truncated={limited})",
         "", "## Effective kernel configuration", "",
         "| Symbol | Value |", "| --- | --- |",
     ]
-    md += [f"| \`CONFIG_{k}\` | \`{v}\` |" for k, v in report["config"].items()]
+    md += [f"| `CONFIG_{k}` | `{v}` |" for k, v in report["config"].items()]
     md += ["", "## Linux 7.3 clock checks to reconcile", "",
            "| Clock path | Register | Bit | Patch | Interpretation |",
            "| --- | --- | --- | --- | --- |"]
@@ -217,7 +217,7 @@ def main():
            for name, off, bit, patch, _ in CHECKS]
     md += ["", "## Candidate driver source excerpts", ""]
     for hit in hits[:200]:
-        md += [f"### \`{hit['path']}:{hit['line']}\`",
+        md += [f"### `{hit['path']}:{hit['line']}`",
                "", "~~~c", hit["context"], "~~~", ""]
     if len(hits) > 200:
         md.append(f"Additional {len(hits) - 200} excerpts in clock-audit.json.")
