@@ -59,3 +59,42 @@ Read 7.3 patches **6038/6039/6200**, compare built hybrid DTB's `/soc` clocks, i
 - Do not vendor the entire MiniMyth2 patch stack, Linux 7.3 source, board DTB, proprietary firmware, boot0 or an unpinned U-Boot.
 - Keep the pinned Linux 6.18.19 source and 0.2.7 baseline immutable; new work uses an explicit experiment branch and full source/config/artifact manifest.
 - First-boot LED divergence is recorded separately and **deferred**.
+
+## 2026-11-16 WSL clock-audit output: first actual findings
+
+Operator executed `scripts/audit-618-a733-clocks.py` on `/root/opi3w-hybrid-build-0.2.7`, shared `clock-audit.md`, effective `.config` SHA256 `6a549d0dedfbf28088845fe7262e966a04ad6c72e1e1c1edf209ce7297f3f721`. **OFFLINE REVIEW ONLY**: 230 source files scanned, 446 text hits, no truncation. The report only emits the first 200 excerpts in Markdown and leaves 246 in the local JSON. It primarily matches unrelated Allwinner SoCs; these hits are **not 446 A733 problems**. The actual A733 CCU detailed gate map is not visible in the supplied abbreviated Markdown output.
+
+Compiled config confirms `AW_SUN60IW2_CCU=y`, `AW_PINCTRL_SUN60IW2_R=y`, `AW_TWI=y`, `AW_DMA=y`, `AW_MMC=y`, `AW_MFD_AXP2101=y`, `AW_UART_NG=y`, `LEDS_GPIO=y`, `BLK_DEV_INITRD=y`, `RD_GZIP=y`. `CONFIG_MMC_SUNXI` and `CONFIG_CLK_IGNORE_UNUSED` report **UNKNOWN** because keys are absent from the submitted effective config parsing; UNKNOWN does **not** establish a missing feature. The raw Image SHA and valid ARM64 magic match original 0.2.7; DTB also matches original 0.2.7 and has a status LED.
+
+The imported vendor clock framework contains `#define __SUNXI_ALL_CLK_IGNORE_UNUSED__ 1` and its registration helpers conditionally OR `CLK_IGNORE_UNUSED`. This is an important **alternate clock-retention mechanism** versus Linux 7.3 explicit `CLK_IS_CRITICAL`; however, this macro alone is not proof every relevant A733 gate uses the helper or is registered in our compiled kernel.
+
+**Supplemental direct inspection of pinned donor** `alexcaoys/allwinner-bsp@656a550c826787e7e72fae58ca793df9e0988ac8`, path `drivers/clk/sunxi-ng/ccu-sun60iw2.c` (not yet compared byte-for-byte to our transformed local hybrid):
+
+| Register / bit | Pinned donor gate | Flag |
+| --- | --- | --- |
+| 0x05C0 / 28 | `cpus-hclk-gate` | `CLK_IGNORE_UNUSED` |
+| 0x0594 / 0 | `msi-lite0` | `CLK_IGNORE_UNUSED` |
+| 0x059C / 0 | `msi-lite1` | `CLK_IGNORE_UNUSED` |
+| **0x05A4 / 0** | **`msi-lite2`** | **`0` (no protection flag)** |
+| 0x05C0 / 16 | `msilite0-ahb-gate` | `CLK_IGNORE_UNUSED` |
+| 0x05E0 / 29 | `msilite0-mbus-gate` | `CLK_IGNORE_UNUSED` |
+| 0x05E0 / 31 | `msilite2-mbus-gate` | `CLK_IGNORE_UNUSED` |
+| 0x05C0 / 5 | `de-ahb-gate` | `CLK_IS_CRITICAL` |
+| 0x05E0 / 11 | `desys-mbus-gate` | `CLK_IS_CRITICAL` |
+
+The unprotected MSI-Lite2 is a **candidate difference**, not evidence that this clock is used or is disabled in our failed boot. Do not patch it without first checking the hybrid's compiled `ccu-sun60iw2.c`, clock consumers and stage of failure. Also distinguish `CLK_IGNORE_UNUSED` from `CLK_IS_CRITICAL`: they are not identical semantics.
+
+### Focused read-only follow-up on operator WSL
+
+```bash
+K=/root/opi3w-hybrid-build-0.2.7
+F="$K/linux/bsp/drivers/clk/sunxi-ng/ccu-sun60iw2.c"
+test -f "$F" || { echo "Missing exact A733 CCU"; exit 1; }
+sha256sum "$F"
+sed -n '520,690p' "$F"
+grep -n -E 'sun60iw2.*probe|sun60iw2.*init|CLK_IGNORE_UNUSED|CLK_IS_CRITICAL' "$F" | tail -45
+```
+
+Review the actual **clock source** before any patch or kernel recompilation. `sed -n 520,690p` should expose specific gates if local source resembles pinned donor; do not assume line numbers if transformed. Then run the independent `audit-618-booti-handoff.py` for the other hypothesis.
+
+**Disposition:** no confirmed Linux 6.18 clock-root cause yet; no source code or hardware change approved.
