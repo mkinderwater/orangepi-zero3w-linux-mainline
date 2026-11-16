@@ -74,3 +74,19 @@ Inspect final images independently (filesystem audit, legacy header via `dumpima
 - Do not introduce vendor `bootm` fallback that could misidentify the running kernel.
 - Keep the Linux 6.18 clock investigation separate.
 - First-boot LED state difference remains deferred.
+
+## 2026-11-16 assembler failure: donor second-stage SHA mismatch
+
+Operator attempted the new paired builder. It passed preliminary checks and rejected the donor's **second-stage script SHA**, at `validate_source_script`, before modifying the script or initramfs. No vendor/hybrid hardware pass and no qualified image resulted.
+
+The specific failure:
+
+```text
+RuntimeError: Second-stage source hash changed
+```
+
+**Known state:** The parent donor hash was checked successfully to reach this location; the kernel, DTB, initramfs, first-stage and environment file checks also passed. The script's expected hash is pinned per profile (`vendor=ec7c2338...`, `hybrid=50a01b89...`), but the **actual observed SHA was not included** in the exception. Do not replace the expected hash by guess, infer which profile the operator ran, or bypass the guard.
+
+Commit `798d691` changes failure diagnostics only: on mismatch, output expected and actual SHA256 plus parsed U-Boot script lines (if header valid). It continues to reject mismatches and deletes the copied partial image.
+
+**Next:** `git pull --ff-only` and rerun the same vendor-profile builder command. Report the `STAGE2_SOURCE_HASH_MISMATCH` block; if only the script's legacy header differs, separately compare the extracted command text, identify provenance and reconcile to a new explicitly pinned full donor. Never weaken the source and retained-file checks.
