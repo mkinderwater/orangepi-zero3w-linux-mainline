@@ -167,8 +167,9 @@ def main():
         if loop:
             run("losetup", "-d", loop, check=False)
         if not complete:
-            # Never leave an incomplete copy that looks like a test image.
+            # Never leave an incomplete copy or allocation audit that looks qualified.
             out.unlink(missing_ok=True)
+            Path(str(out) + ".boot-allocation.json").unlink(missing_ok=True)
     output_prefix_sha = sha(out, FIRMWARE_RESERVED_BYTES)
     if output_prefix_sha != source_prefix_sha:
         out.unlink(missing_ok=True)
