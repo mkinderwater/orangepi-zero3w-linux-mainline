@@ -113,3 +113,17 @@ This **exactly matches** the already pinned, hardware-qualified vendor-stage2 SH
 The script text shows initrd `load`, immediate `setenv ... ${filesize}`, kernel load and original `booti kernel ramdisk:size fdt`. There is no verified U-Boot problem in this failure. Commit `badab45` restores **the known-good reference hash**, without bypassing checks or modifying the kernel, donor, image contents or test design.
 
 **Next:** `git pull --ff-only`, re-run the same `--profile vendor` command and follow the existing vendor hardware control gate. As of this note, the new image build and physical legacy boot are still unverified.
+
+## 2026-11-16 VBI legacy-PID1 assembly: OFFLINE PASS
+
+Operator ran the corrected `--profile vendor` paired builder, which returned:
+
+```text
+ASSEMBLED_OFFLINE_NOT_HARDWARE_TESTED: /root/opi3w-m2-work/opi3w-VBI-LEGACY-PID1-v1.img
+SHA256: 6074fa681afccfa9f0142dc95ca3e5b86dd723b4bcff3b4b1db9ed09e41b78a4
+Changed: ['boot/mainline/stock-vendor-stage2.scr', 'boot/mainline/verified-vendor-initrd.gz']
+```
+
+**Gate passed:** builder completed with donor kernel, DTB, first-stage, firmware-prefix, source SHA and internal logical-file inventory checks. **Still pending:** independent read-only final image audit and **physical Zero 3W boot**. Do not mark vendor legacy interface hardware PASS merely because the image assembled. Do not build/flash the 6.18 hybrid legacy candidate until vendor legacy PID1 HW PASS.
+
+Next inspect `.sha256`, `.audit.json`, and the final image's `uInitrd` / stage2 script independently. Hardware acceptance requires three startup status LED flashes and `UNAME Linux 6.6.98-sun60iw2 aarch64` plus periodic PID1 ALIVE on HDMI/LED. Lack of USB-NIC is expected for this minimal PID1.
