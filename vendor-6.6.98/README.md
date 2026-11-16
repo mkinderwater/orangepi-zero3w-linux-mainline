@@ -1,6 +1,6 @@
 # Orange Pi Zero 3W: reproducible vendor Linux 6.6.98 baseline
 
-Status: **workflow published, no new kernel compiled or flashed**.
+Status as of November 15, 2026: **both control and identity kernel/DTB/module builds completed successfully offline. Neither rebuilt kernel has been hardware tested or packaged into a verified flashable image.**
 
 ## Pinned sources
 
@@ -17,10 +17,11 @@ Vendor Zero 3W DTS surprisingly has `compatible = "xunlong,orangepi-4-pro", "arm
 ```bash
 git clone https://github.com/mkinderwater/orangepi-zero3w-linux-mainline.git
 cd orangepi-zero3w-linux-mainline
-git switch work/zero3w-vendor-6.6.98-baseline
+git switch main
 bash vendor-6.6.98/scripts/prepare.sh
 bash vendor-6.6.98/scripts/build.sh control
 bash vendor-6.6.98/scripts/build.sh identity
+python3 vendor-6.6.98/scripts/preflight.py
 ```
 
 Needs git, curl, make, Python 3, `aarch64-linux-gnu-gcc` and standard kernel build dependencies. The scripts fail closed on unexpected source revisions, DT changes and Kconfig mismatches. Build may need additional BSP dependencies; do not silently patch around compiler errors.
@@ -40,3 +41,7 @@ Output directory: `/mnt/c/Users/mkinderwater/Downloads/opi3w-vendor-6698-results
 See [acceptance](docs/acceptance.md) and [provenance](docs/provenance.md). Before flashing a newly built kernel: compare artifacts to stock, retain proven boot firmware and write a single-change test-image builder with a finished-image manifest.
 
 Do not commit SD/card images, stock firmware binaries, credentials, machine IDs or non-redacted logs. Capture local SHA256 checksums and redacted evidence instead.
+
+## Hardware test evidence collector
+
+After a separate verified stock-preserving image assembler is developed and a spare-card boot is observed, run `vendor-6.6.98/scripts/capture-on-board.sh` **on the Orange Pi** with `stock`, `control` or `identity` as its argument. This collects read-only runtime evidence. It does not establish a boot pass automatically. See [next steps](docs/next-steps.md). No safe image assembler is published here yet.
