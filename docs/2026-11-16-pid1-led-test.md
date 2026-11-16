@@ -51,3 +51,24 @@ Neither test boots Debian, mounts the SD root or activates the NIC. Do not expec
 **Vendor 6.6.98 LED PID1 probe: HW PASS (operator-reported, photograph).** HDMI shows `OPI3W_PID1: START`, `UNAME Linux 6.6.98-sun60iw2 aarch64`, `LED_READY status_led: 3 short PID1 flashes`, `HOLD`, and repeating `ALIVE` messages through at least 25 seconds. Operator reports both LED flashing and HDMI worked. This validates the probe and vendor LED output, **not** 6.18 PID1 execution. Do not assume a static photo measures exact LED timing; the three flashes are operator-observed.
 
 Next: create the HBI-derived 6.18 PID1 LED image using the same probe archive and pinned normalizer. Verify image checksum and independently audit the final image before physical testing. Missing LED/HDMI output under 6.18 is inconclusive until driver registration or earlier kernel entry is independently observed.
+
+## Linux 6.18 LED-v1: first-boot versus later power cycles, November 16
+
+**Hardware observation, operator-reported. Not yet explained; investigation intentionally deferred.**
+
+The HBI-027-derived Linux 6.18 PID1 LED-v1 image consistently showed the Orange Pi "initializing boot loader" splash, without the expected three PID1 flashes or confirmed Linux 6.18 output. The attached USB NIC had no link/activity; the PID1-only probe does not initialize networking, so that observation is not a kernel-entry test.
+
+The operator reflashed the test image three times and noted a repeatable distinction:
+
+| State | Recorded LED behaviour | HDMI |
+| --- | --- | --- |
+| Immediately after rewriting/flashing the image, first power-on | LED initially solid, flashes once at the bootloader splash, then returns to solid | "Initializing boot loader" persists |
+| Subsequent power cycles without reflashing | LED initially solid, flashes once at the splash, then turns off and stays off | Same splash persists |
+| Complete disconnection of power, HDMI, USB peripherals, followed by reconnection | Blink, then off | Same splash persists |
+| Next ordinary power cycle after complete disconnection | Blink, then off | Same splash persists |
+
+This is **not** the three-short-flash PID1 checkpoint. A single LED blink may originate in firmware, GPIO setup, or another boot stage; it does not prove Linux kernel or PID1 execution. Full disconnection did not restore the first-flash solid state, making a simple residual-power explanation less compelling, but the result does not prove storage writes or rule out other causes.
+
+**Unverified hypotheses:** persistent SD changes during first boot; different ext4 metadata or physical allocation; boot-stage state or timing; LED ownership/driver initialization. No raw postboot SD comparison or kernel-stage instrumentation has identified a cause. Earlier PID1-DIAG vs PID1-NORMALIZED hole tests found **zero sparse boot files in both** and identical file-size/first-hole profiles; this excludes observed sparse holes in those two filesystems, not physical extent differences and not the new LED-v1 firstboot effect.
+
+**Decision:** preserve this observation and the original images. **Defer** firstboot-state/root-cause work and avoid further reflash/PMIC/LED experiments solely to explain it. Proceed with Linux 6.18 kernel-entry diagnosis using independently verified signals, without interpreting an off LED or retained splash as proof of failure.
