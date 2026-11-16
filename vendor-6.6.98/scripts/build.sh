@@ -70,8 +70,20 @@ if s.count(bad)==1 and good not in s:
 elif s.count(good)!=1 or bad in s:
     raise SystemExit('STOP: unexpected touchscreen Kconfig source')
 assert (root/'bsp/drivers/input/ctp/gt9xx_secondary/Kconfig').is_file(), 'STOP: target Kconfig absent'
+# This include is relative to the object tree under O= builds. Point it at
+# the pinned source tree without touching codec sources or configurations.
+vepath='bsp/drivers/ve/cedar-ve/Makefile'
+ve=root/vepath
+wrong='include $(src)/codec/Makefile'
+right='include $(srctree)/$(src)/codec/Makefile'
+txt=ve.read_text()
+if txt.count(wrong)==1 and right not in txt:
+    ve.write_text(txt.replace(wrong,right,1))
+elif txt.count(right)!=1 or wrong in txt:
+    raise SystemExit('STOP: unexpected VE Makefile include')
+assert (root/'bsp/drivers/ve/cedar-ve/codec/Makefile').is_file(), 'STOP: VE codec source Makefile absent'
 changed=subprocess.check_output(['git','-C',str(root),'diff','--name-only'],text=True).splitlines()
-expected=[kpath] if mode=='control' else [kpath,dts]
+expected=[kpath,vepath] if mode=='control' else [kpath,vepath,dts]
 if sorted(changed)!=sorted(expected):
     raise SystemExit(f'STOP: unexpected tracked changes: {changed}')
 diff=subprocess.check_output(['git','-C',str(root),'diff','--',kpath],text=True)
@@ -79,13 +91,18 @@ removed=[x for x in diff.splitlines() if x.startswith('-') and not x.startswith(
 added=[x for x in diff.splitlines() if x.startswith('+') and not x.startswith('+++')]
 if removed!=['-'+bad] or added!=['+'+good]:
     raise SystemExit('STOP: Kconfig repair diff differs')
+ve_diff=subprocess.check_output(['git','-C',str(root),'diff','--',vepath],text=True)
+ve_removed=[x for x in ve_diff.splitlines() if x.startswith('-') and not x.startswith('---')]
+ve_added=[x for x in ve_diff.splitlines() if x.startswith('+') and not x.startswith('+++')]
+if ve_removed!=['-'+wrong] or ve_added!=['+'+right]:
+    raise SystemExit('STOP: VE Makefile patch differs')
 if mode=='identity':
     diff=subprocess.check_output(['git','-C',str(root),'diff','--',dts],text=True)
     old='compatible = "xunlong,orangepi-4-pro", "arm,sun60iw2p1";'
     new='compatible = "xunlong,orangepi-zero3w", "arm,sun60iw2p1";'
     if diff.count('-\t'+old)!=1 or diff.count('+\t'+new)!=1:
         raise SystemExit('STOP: identity DTS diff differs')
-print('KCONFIG_PATH_REPAIRED_EXACT_DIFF_VERIFIED')
+print('KCONFIG_PATH_AND_VE_INCLUDE_REPAIRED_EXACT_DIFF_VERIFIED')
 PY
 mkdir -p "$OBJ"
 if [[ ! -f "$OBJ/.config" ]]; then
@@ -115,14 +132,16 @@ cp "$IMAGE" "$OUT/Image"
 cp "$DTB" "$OUT/sun60i-a733-orangepi-zero3w.dtb"
 git -C "$TREE" diff -- "$DTS_REL" > "$OUT/dts.patch"
 git -C "$TREE" diff -- bsp/drivers/input/ctp/Kconfig > "$OUT/kconfig-path.patch"
+git -C "$TREE" diff -- bsp/drivers/ve/cedar-ve/Makefile > "$OUT/ve-include-path.patch"
 {
   echo "SOURCE_COMMIT=$PIN"
   echo "MODE=$MODE"
   echo "SOURCE=$TREE"
   echo "BUILD=$OBJ"
   echo "KCONFIG_REPAIR=gt9xx_secondary_double_slash"
+  echo "VE_KBUILD_REPAIR=source_tree_codec_include"
   echo "KERNEL_VERSION=$(make -s -C "$TREE" O="$OBJ" ARCH=arm64 kernelrelease)"
   sha256sum "$WORK_ROOT/vendor-a733.config" "$OBJ/.config" "$TREE/$DTS_REL" "$IMAGE" "$DTB"
 } > "$OUT/build-manifest.txt"
-(cd "$OUT" && sha256sum Image sun60i-a733-orangepi-zero3w.dtb dts.patch kconfig-path.patch build-manifest.txt > SHA256SUMS)
+(cd "$OUT" && sha256sum Image sun60i-a733-orangepi-zero3w.dtb dts.patch kconfig-path.patch ve-include-path.patch build-manifest.txt > SHA256SUMS)
 echo "BUILT_OFFLINE_NOT_FLASHABLE_NOT_HARDWARE_TESTED: $OUT"
