@@ -27,7 +27,7 @@ FILE_HASHES = {
 INITRD = "boot/mainline/hybrid-0.2.7-vbi/initrd.img-6.18.19-opi3w-hybrid-0.2.7"
 FIRMWARE_RESERVED_BYTES = 32 * 1024 * 1024
 # Pinned upstream boot normalizer, not a reimplementation.
-BOOT_ALLOCATOR_SHA = '1e8027393d07c5fc56955403c20df238dbe1b3f4'
+BOOT_ALLOCATOR_BLOB = '1e8027393d07c5fc56955403c20df238dbe1b3f4'
 
 def run(*argv, check=True):
     return subprocess.run(argv, check=check, text=True, capture_output=True)
@@ -76,7 +76,9 @@ def main():
     if source == out or not source.is_file() or not probe.is_file() or out.exists():
         ap.error("source and probe must exist, output must be new and distinct")
     scripts = args.wbuild_scripts.resolve()
-    require_hash(scripts / "boot_allocation.py", BOOT_ALLOCATOR_SHA)
+    blob = run("git", "hash-object", str(scripts / "boot_allocation.py")).stdout.strip()
+    if blob != BOOT_ALLOCATOR_BLOB:
+        raise RuntimeError("Unexpected boot_allocation.py Git blob: " + blob)
     sys.path.insert(0, str(scripts))
     allocator = importlib.import_module("boot_allocation")
     require_hash(source, SOURCE_SHA)
@@ -144,7 +146,7 @@ def main():
                 raise RuntimeError("No regular boot files normalized")
             audit = {
                 "schema": 1,
-                "allocator_sha256": BOOT_ALLOCATOR_SHA,
+                "allocator_git_blob": BOOT_ALLOCATOR_BLOB,
                 "all_regular_boot_files_dense": True,
                 "files": normalized,
                 "probe_sha256": probe_sha,
@@ -187,7 +189,7 @@ def main():
         "partition_start": 65536,
         "partition_sectors": 8577024,
         "boot_allocation_audit": str(allocation_audit),
-        "allocator_sha256": BOOT_ALLOCATOR_SHA,
+        "allocator_git_blob": BOOT_ALLOCATOR_BLOB,
         "warning": "Output needs independent read-only filesystem audit and flash hardware tests; missing UART marker inconclusive",
     }
     manifest = Path(str(out) + ".audit.json")
