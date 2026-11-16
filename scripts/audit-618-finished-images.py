@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Read-only finished-image audit for Orange Pi Zero 3W VBI/HBI/F1 tests.
 
-Requires root, util-linux (losetup, lsblk), e2fsprogs (debugfs), u-boot-tools
+Requires root, util-linux (losetup, sfdisk, blkid), e2fsprogs (debugfs), u-boot-tools
 (dumpimage). Never mounts or changes an image. Do not treat absence of Linux
 messages or a frozen HDMI splash as proof of no kernel execution.
 """
@@ -99,16 +99,38 @@ def inspect(label, path, dest):
     if not path.is_file():
         raise FileNotFoundError(path)
     image_hash = sha256(path)
-    r = cmd("losetup", "--find", "--show", "--read-only", "--partscan", str(path))
-    loop = r.stdout.strip()
+    # WSL may expose no /dev/loopNp1 with --partscan, even for valid MBR.
+    # Read the image's partition table, then create read-only offset loop
+    # devices. Never guess an offset or assume filesystem is partition 1.
+    layout = json.loads(cmd("sfdisk", "--json", str(path)).stdout)["partitiontable"]
+    sector_size = int(layout.get("sectorsize", 512))
+    if sector_size not in (512, 1024, 2048, 4096):
+        raise RuntimeError(f"Unexpected logical sector size: {sector_size}")
+    candidates = layout.get("partitions", [])
+    if not candidates:
+        raise RuntimeError(f"{label}: no partitions in sfdisk table")
+    devices = []
+    ext4 = []
     try:
-        disks = cmd("lsblk", "-nrpo", "NAME,FSTYPE", loop).stdout.splitlines()
-        ext4 = [line.split()[0] for line in disks if len(line.split()) >= 2 and line.split()[1] == "ext4"]
+        for part in candidates:
+            start = int(part["start"])
+            size = int(part["size"])
+            if start < 0 or size <= 0 or (start + size) * sector_size > path.stat().st_size:
+                raise RuntimeError(f"{label}: partition outside image bounds")
+            dev = cmd("losetup", "--find", "--show", "--read-only",
+                      "--offset", str(start * sector_size),
+                      "--sizelimit", str(size * sector_size), str(path)).stdout.strip()
+            devices.append(dev)
+            fs = cmd("blkid", "-p", "-o", "value", "-s", "TYPE", dev, check=False)
+            if fs.returncode == 0 and fs.stdout.strip() == "ext4":
+                ext4.append((dev, start, size))
         if len(ext4) != 1:
-            raise RuntimeError(f"{label}: require precisely one ext4 partition, found {ext4}")
-        dev = ext4[0]
+            raise RuntimeError(f"{label}: require exactly one ext4 partition; detected {len(ext4)}")
+        dev, start, size = ext4[0]
         record = {"image": str(path), "sha256": image_hash,
                   "size_bytes": path.stat().st_size, "ext4_device": dev,
+                  "partition_start_sector": start, "partition_sector_count": size,
+                  "sector_size": sector_size,
                   "boot_files": {}, "scripts": {}}
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
@@ -123,7 +145,8 @@ def inspect(label, path, dest):
                     record["scripts"][name] = decoded
         return record
     finally:
-        cmd("losetup", "-d", loop, check=False)
+        for dev in reversed(devices):
+            cmd("losetup", "-d", dev, check=False)
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
