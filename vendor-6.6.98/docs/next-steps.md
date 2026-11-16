@@ -28,3 +28,39 @@ The grouped-target Makefile patch failed to stop the loop. The bounded debug tra
 ## Cedar VE codec Makefile missing from O= build (Nov 15, 2026)
 
 The first genuine compilation failure after repairing the GT9xx Kconfig reference was `No rule to make target 'bsp/drivers/ve/cedar-ve/codec/Makefile'`. Both pinned kernel and disposable source worktree **contain and track** this file, and the build is not sparse. The video config has `CONFIG_AW_VIDEO_ENCODER_DECODER=m` with encoder and decoder enabled. The vendor `bsp/drivers/ve/cedar-ve/Makefile` incorrectly includes `$(src)/codec/Makefile` relative to the O= object directory. The official `scripts/Makefile.build` sets `src := $(obj)`. Therefore the build now patches that include to `$(srctree)/$(src)/codec/Makefile` in the disposable worktree only. The patch and exact diff are checked and retained as `ve-include-path.patch`. This is a **source-backed candidate fix, not yet compiled to completion**. Do not disable the codec or manufacture a placeholder Makefile.
+
+## November 15: baseline test gates now implemented
+
+Following **successful offline builds** of both `control` and `identity`, the repository added two **read-only** validation tools.
+
+**WSL preflight (before any image assembly):**
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+python3 vendor-6.6.98/scripts/preflight.py
+```
+
+Checks SHA256SUMS, pinned source revision, mode and vendor fixes, exact *single source-line* board identity DTS patch, kernel-release files, FDT headers and distinct DTBs. It reports the kernel Image SHA mismatch without presuming it is harmless. A PASS means only that the compiled artifacts meet these offline checks. **Do not flash the Image or DTB directly or declare stock-image compatibility based on it.**
+
+**On-board observational capture (only after a separately audited, booting test SD image exists):**
+
+```bash
+# On the Orange Pi, copy capture-on-board.sh onto the device, then:
+bash capture-on-board.sh control
+# Or: bash capture-on-board.sh identity
+```
+
+This writes read-only observations in `~/opi3w-hw-control` or `~/opi3w-hw-identity`, including `uname`, `findmnt`, `lsblk`, cpufreq policy, DRM connector state, `dmesg`, FDT and checksums. Set `OUT` to a fresh location when repeating. Manually annotate real HDMI Linux output, Wi-Fi connectivity and reboot/power-cycle results. Review all files for identifiers before sharing. Linux dmesg may not be readable without root or appropriate permissions, so read access must be checked.
+
+**Critical remaining blocker:** This repository still has **no approved assembler** that installs the rebuilt kernel, matching modules and DTB into a clone of proven stock donor media while preserving Boot0, monitor/SCP, U-Boot, first/second-stage scripts, root layout and UUID. Do not improvise replacing `uImage` with raw `Image` or `bootm` with `booti` in a single uncontrolled change. Preserve ext4 `/boot` dense-allocation audit and flash one isolated control at a time. Hardware acceptance has **not** been performed.
+
+**Parallel 6.18 source audit:**
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+python3 scripts/audit-hybrid-027-source.py
+```
+
+Compare `bsp/` exactly against pinned Allwinner BSP. Outputs in `/mnt/c/Users/mkinderwater/Downloads/opi3w-hybrid-027-source-audit` include `summary.md`, `audit.json`, `bsp-differences.txt` and `hybrid-top-level.patch`. The 6.18 hybrid is **not** yet reproduced from Git until imported BSP changes, build config, source transformation, module stage and image assembly are audited and preserved.
+
+Test as **two independent controlled cases**, not two unreviewed edits in one image. First test the unmodified vendor DTS with the new build; then separately test the corrected board-compatible property, keeping firmware, kernel payload, modules, root filesystem, root UUID and boot commands demonstrably constant. Because the two kernel Image SHA256 values currently differ, investigate them before asserting that the second case is a DTB-only experiment.
