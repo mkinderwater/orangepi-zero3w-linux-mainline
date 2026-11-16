@@ -1,3 +1,5 @@
+> **Current development records (Nov 15, 2026):** The original 2026-11-14 statements below reflect the M2 stage. For the newer VBI/HBI/K2/F1/F2 hardware evidence, the verified 6.6.98 control and identity builds, all source pins and bootloader/PMIC/HDMI investigations, start at **[2026-11-15 engineering index](docs/2026-11-15-engineering-index.md)**. This repository still does **not** contain a hardware-booted Linux 6.18 kernel. The two rebuilt vendor 6.6.98 variants have compiled but have not been hardware tested. Use [WSL inventory script](scripts/audit-wsl-resource-inventory.sh) to identify remaining local artifacts that require a tracked export. Do not infer 6.18 kernel failure from the frozen HDMI splash; F1 booted with that symptom.
+
 # Orange Pi Zero 3W: upstream-oriented Linux bring-up
 
 **Status: experimental source and compile evidence, NOT a bootable release.**
