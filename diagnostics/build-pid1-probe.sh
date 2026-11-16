@@ -11,11 +11,7 @@ if grep -q INTERP "$out/ELF-PROGRAM-HEADERS.txt"; then echo 'DYNAMIC LINK FAILUR
 (cd "$out/root" && find . -print0 | LC_ALL=C sort -z | cpio --null --quiet -o -H newc) | gzip -9 -n > "$out/pid1-probe-initramfs.cpio.gz"
 gzip -t "$out/pid1-probe-initramfs.cpio.gz"
 gzip -dc "$out/pid1-probe-initramfs.cpio.gz" | cpio -it --quiet > "$out/CPIO-CONTENTS.txt"
-grep -Eq '^(\./)?init
-echo 'VALIDATED: gzip, CPIO, AArch64 static /init'
-sha256sum "$out/root/init" "$out/pid1-probe-initramfs.cpio.gz" > "$out/SHA256SUMS"
-echo "BUILD_ONLY: $out/pid1-probe-initramfs.cpio.gz"
- "$out/CPIO-CONTENTS.txt" || { echo 'ERROR: /init absent in archive' >&2; exit 1; }
+grep -Eq '^([.]/)?init$' "$out/CPIO-CONTENTS.txt" || { echo 'ERROR: /init absent in archive' >&2; exit 1; }
 echo 'VALIDATED: gzip, CPIO, AArch64 static /init'
 sha256sum "$out/root/init" "$out/pid1-probe-initramfs.cpio.gz" > "$out/SHA256SUMS"
 echo "BUILD_ONLY: $out/pid1-probe-initramfs.cpio.gz"
