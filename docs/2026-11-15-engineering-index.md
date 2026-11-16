@@ -17,6 +17,9 @@ Evidence cutoff: 2026-11-15. Maintained alongside the reproducible 6.6.98 work o
 | PMIC, power, I2C, MMC and clocks | [PMIC and MMC audit](2026-11-15-pmic-mmc.md) |
 | HDMI driver root match, output failure and graphics architecture | [HDMI and display](2026-11-15-hdmi.md) |
 | Exact 6.18.19 hybrid versions and unresolved kernel entry | [hybrid 6.18](2026-11-15-hybrid-618.md) |
+| **Linux 7.3 assets: ranked adaptation plan, exclusions and test gates** | [7.3 to 6.18 adoption plan](2026-11-16-linux-73-to-618-adoption-plan.md) |
+| Linux 7.3 A733/Armbian/Yocto nested source and provenance review | [7.x A733 source audit](2026-11-16-linux-7x-a733-source-audit.md) |
+| Independent successful 6.18 source and handoff comparison | [6.18 external source deep audit](2026-11-16-external-618-deep-audit.md) |
 | Repeatable 6.6.98 vendor builds and build-system bugs | [vendor project](../vendor-6.6.98/README.md) and [next steps](../vendor-6.6.98/docs/next-steps.md) |
 | Image validation, safe experiment discipline | [acceptance and release gates](2026-11-15-reproducibility.md) |
 | M2x experiments (M2cp through M2dc), original failure and newer cross-checks | [M2x results and options](2026-11-15-m2x-results.md) |
