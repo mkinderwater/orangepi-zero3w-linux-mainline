@@ -57,3 +57,25 @@ The second command uses the *intended* LED probe payload. If a finished SD image
 No 7.3 kernel sources or third-party proprietary firmware are copied into this repo. Preserve vendor Zero 3W Boot0, PMIC rails, DRAM profile and PL7 LED. Firstboot LED state divergence remains documented/deferred.
 
 **Important:** The clock collector scans only selected source directories for likely offsets/names. It is a bounded triage tool, not a complete formal CCU/PMIC audit. If its output is empty, inspect vendor BSP Makefiles and clock register tables manually before calling any clock absent.
+
+## Actual Track B result, 2026-11-16 (operator WSL output)
+
+Ran `scripts/audit-618-booti-handoff.py` using retained decoded HBI second-stage `/root/opi3w-m2-work/618-pid1-final-audit/HBI-boot_mainline_stock-vendor-stage2.scr.cmd`, built 0.2.7 `stage/boot/Image`, `stage/boot/sun60i-a733-orangepi-zero3w.dtb` and LED-v1 PID1 probe archive.
+
+- Status `OFFLINE_STATIC_AUDIT_NOT_KERNEL_BOOT_PROOF`.
+- ARM64 Image magic `41524d64` (`ARMd`), text offset `0`, image size in header `9,043,968` bytes, file size `8,591,368` bytes, flags `0xa`, SHA256 `e4b2eff08dfc7e2553cf498def6658515f5f2f1e5e8066d0fcc60a73742069c7`, matches pinned HBI 0.2.7 Image.
+- DTB matches pinned HBI 0.2.7 DTB.
+- **This specific LED-v1 diagnostic initramfs** is raw gzip, size `290,236` bytes, SHA256 `cada2a6ebd278238f51ec35b64a3342562b98b03abf045c9ae271d23cb447bfa`. This differs from earlier original PID1 probe SHA/size; the operator separately demonstrated the LED-v1 probe under vendor Linux 6.6.98. Do not confuse test payloads.
+- Decoded HBI second-stage `booti ${kernel_addr_r} ${ramdisk_addr_r}:${opi3w_vendor_initrd_size} ${fdt_addr_r}`; no `bootm` fallback; `fdt addr`, `fdt resize` and `env import` appear.
+- This static audit **does not evaluate** `opi3w_vendor_initrd_size`, verify the script's last `load` or its `filesize` capture, model U-Boot runtime relocation, or prove that these are flashed SD bytes.
+
+**Open check:** Inspect actual second-stage script lines around the initrd `load`, `setenv opi3w_vendor_initrd_size ${filesize}` and `booti`. Ensure `filesize` comes from **the intended initrd**, not the subsequent kernel or DTB load. Check loader return codes and no hidden fallback. This is read-only, no new build or flash.
+
+```bash
+S=/root/opi3w-m2-work/618-pid1-final-audit/HBI-boot_mainline_stock-vendor-stage2.scr.cmd
+grep -n -C 5 -E 'initrd|ramdisk|filesize|opi3w_vendor_initrd_size|booti|kernel_addr_r|fdt_addr_r' "$S"
+```
+
+When script semantics are confirmed, next controlled handoff experiment may compare **legacy uInitrd + booti address** against **raw gzip + booti address:size** while retaining the same kernel/DTB and independent 6.6 control; the coherent interface change must be isolated from any clock change.
+
+**Track A and Track B remain unresolved as to actual 6.18 execution.** No hardware PASS and no confirmed BL31 collision.
