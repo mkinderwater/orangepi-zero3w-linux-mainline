@@ -16,3 +16,7 @@
 - The HDMI core in vendor BSP matches root `arm,sun60iw2p1`; the hybrid DTB removed it. Hence the proposed board-identity correction is a necessary targeted change, not proof of complete HDMI function.
 - Frozen boot splash does not imply Linux has not booted.
 - F1 live FDT received full 1GiB RAM from U-Boot, so do not hardcode memory to 1GiB.
+
+## GNU Make 4.4.1 configuration remake loop (Nov 15, 2026)
+
+On WSL Debian, GNU Make 4.4.1 with GCC 14.2.0, the pinned kernel's original multi-target Kconfig sync rule repeatedly emitted `SYNC include/config/auto.conf` and `GEN Makefile` without compiling. All four generated Kconfig files existed, and both host/target GCC reported 14.2.0. The old Makefile comments explicitly recommend grouped targets for GNU Make >= 4.3. The build script now applies an exact **single Kbuild rule** replacement to each disposable kernel worktree, keeping the original pin unmodified and recording `kbuild-make-compat.patch` in the outputs. This is a **candidate fix, not hardware/build tested**. Test control from the interrupted tree, record whether the sync loop disappears, then separately evaluate compilation errors. Do not confuse host-build compatibility changes with board DTS changes.
