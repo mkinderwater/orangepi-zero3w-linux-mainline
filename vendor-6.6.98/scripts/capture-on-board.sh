@@ -15,7 +15,7 @@ capture mount.txt findmnt -o SOURCE,TARGET,FSTYPE,OPTIONS
 capture memory.txt cat /proc/meminfo
 capture partitions.txt lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINTS
 capture devices.txt sh -c 'find /sys/bus/i2c/devices/ -maxdepth 1 -type l -printf "%f\n" 2>/dev/null | sort'
-capture cpu-frequency.txt sh -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_{cur,min,max}_freq; do [ ! -f "$f" ] || { printf "%s " "$f"; cat "$f"; }; done'
+capture cpu-frequency.txt sh -c 'for f in /sys/devices/system/cpu/cpufreq/policy*/scaling_*_freq; do [ ! -f "$f" ] || { printf "%s " "$f"; cat "$f"; }; done'
 capture wifi-device.txt sh -c 'for d in /sys/class/net/wlan*; do [ ! -e "$d" ] || printf "%s\n" "$d"; done'
 capture drm-status.txt sh -c 'for f in /sys/class/drm/card*-*/status; do [ ! -f "$f" ] || { printf "%s " "$f"; cat "$f"; }; done'
 capture hdmi-connector.txt sh -c 'for f in /sys/class/drm/card*-*/enabled; do [ ! -f "$f" ] || { printf "%s " "$f"; cat "$f"; }; done'
