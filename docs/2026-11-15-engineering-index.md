@@ -18,6 +18,7 @@ Evidence cutoff: 2026-11-15. Maintained alongside the reproducible 6.6.98 work o
 | Exact 6.18.19 hybrid versions and unresolved kernel entry | [hybrid 6.18](2026-11-15-hybrid-618.md) |
 | Repeatable 6.6.98 vendor builds and build-system bugs | [vendor project](../vendor-6.6.98/README.md) and [next steps](../vendor-6.6.98/docs/next-steps.md) |
 | Image validation, safe experiment discipline | [acceptance and release gates](2026-11-15-reproducibility.md) |
+| M2x experiments (M2cp through M2dc), original failure and newer cross-checks | [M2x results and options](2026-11-15-m2x-results.md) |
 | Original experiments | [M2 history](development-history.md), [original boot investigation](boot-handoff-and-failures.md), [original engineering report](../ORANGE_PI_ZERO_3W_LINUX_6_18_BOOT_INVESTIGATION_2026-11-15.md) |
 
 ## Evidence labels
