@@ -159,3 +159,21 @@ Operator copied the image to `/home`. **The copied `/home` instance has not yet 
 **Next gate:** physical SD test. Three initial LED flashes or PID1 textual UNAME 6.18.19+ and repeat ALIVE is strong Linux execution evidence; frozen HDMI splash alone not evidence of non-entry, because vendor kernel plus hybrid DTB previously reached userspace with frozen splash. A single LED blink remains inconclusive. Preserve separate LED observation for future evidence; do not conflate vendor control's HDMI result with 6.18.
 
 Neither a hardware success nor an unchanged boot failure has been reported for the hybrid legacy image.
+
+## 2026-11-16 hybrid legacy-PID1 physical test: NO PID1 SIGNAL, REPRODUCIBLE
+
+The operator flashed `opi3w-HBI-027-LEGACY-PID1-v1.img` (built SHA256 `2f45477b954f669225badb7faf85d81633a58039d1f6b549df76c9b84e7d3819`; previous generated-image checksum verified; flashed-card readback was not supplied).
+
+**Physical observations:** first boot: one LED flash, then LED off, HDMI stays on Orange Pi init bootloader display. Second boot after power off/on: **exactly same** observations. **No three-flash PID1 signature, no ALIVE or 6.18 uname was reported.** This is a reproducible *no PID1 signal* result, **not proof of CPU never entering Linux**; firmware LED and bootloader splash can persist across kernel execution, and console output may be unavailable.
+
+**Comparison:**
+- Vendor 6.6.98 + legacy-wrapped uInitrd + address-only booti: physically boots, HDMI works.
+- Linux 6.18.19 + original raw gzip + addr:size booti: no confirmed PID1.
+- Linux 6.18.19 + same legacy-wrapped PID1 uInitrd + addr-only booti: no confirmed PID1, repeatable.
+- All 6.18 tests retain original Image SHA256 `e4b2eff08dfc7e2553cf498def6658515f5f2f1e5e8066d0fcc60a73742069c7` and DTB SHA256 `5c9cd102215183cc56150aab2ce331216bea26d80741cdfc1fb0d95f5818e7b9`.
+
+**Disposition:** legacy initramfs packaging **not sufficient** to repair hybrid Linux 6.18 boot. No justification to continue randomly swapping initramfs formats, clocks or board files.
+
+**Next independent evidence gate:** obtain *real U-Boot serial console* or another independent earliest-possible kernel execution marker (pre-PID1) to separate (1) failed U-Boot handoff / actual relocation or error, and (2) kernel entry followed by early stall. Capture exact U-Boot booti output and `bootargs` / DTB state. Confirm flashed SD bytes or at least last written image; frozen splash is not a reliable marker. Do not infer the single LED flash comes from Linux.
+
+**No 6.18 HW PASS.** First-boot LED state differential remains deferred.
