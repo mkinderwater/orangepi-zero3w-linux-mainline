@@ -49,8 +49,6 @@ def inspect(path):
                 with p.open("rb") as f:
                     fd = f.fileno()
                     hole = os.lseek(fd, 0, os.SEEK_HOLE) if size else 0
-                if hole < size:
-                    raise_if = False  # record only; original image can be sparse
                 report[name] = {"size": size, "first_hole": hole, "has_hole": hole < size}
             call("umount", tmp)
             mounted = False
