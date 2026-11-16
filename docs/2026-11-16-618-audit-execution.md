@@ -79,3 +79,27 @@ grep -n -C 5 -E 'initrd|ramdisk|filesize|opi3w_vendor_initrd_size|booti|kernel_a
 When script semantics are confirmed, next controlled handoff experiment may compare **legacy uInitrd + booti address** against **raw gzip + booti address:size** while retaining the same kernel/DTB and independent 6.6 control; the coherent interface change must be isolated from any clock change.
 
 **Track A and Track B remain unresolved as to actual 6.18 execution.** No hardware PASS and no confirmed BL31 collision.
+
+## HBI second-stage command order confirmed (2026-11-16)
+
+Operator used `grep -a -n -C 5` on the retained script `HBI-boot_mainline_stock-vendor-stage2.scr.cmd`. The previous `grep` without `-a` only returned "binary file matches" because this export contains binary content. This is a text-display issue, not a boot result.
+
+Observed script lines:
+
+```text
+20: env import -t ${load_addr} ${filesize}
+38: setenv bootargs "... clk_ignore_unused ..."
+42: load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}mainline/hybrid-0.2.7-vbi/initrd.img-6.18.19-opi3w-hybrid-0.2.7
+43: setenv opi3w_vendor_initrd_size ${filesize}
+44: load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}mainline/hybrid-0.2.7-vbi/Image
+46: load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}mainline/hybrid-0.2.7-vbi/sun60i-a733-orangepi-zero3w.dtb
+47: fdt addr ${fdt_addr_r}
+48: fdt resize 65536
+63: booti ${kernel_addr_r} ${ramdisk_addr_r}:${opi3w_vendor_initrd_size} ${fdt_addr_r}
+```
+
+**Conclusion: PASS for ordering in the retained script source.** The initrd size variable is assigned immediately following the initrd `load`, *before* the following Image and DTB `load` commands overwrite U-Boot's global `filesize`. We cannot claim that the load returned success, nor that its runtime variable had the expected value, without observing the executing U-Boot environment. Source does not contain return-code guards on the three payload loads.
+
+**Clock hypothesis downgraded:** The bootargs string explicitly includes `clk_ignore_unused`, which should suppress ordinary late unused-clock cleanup when honored by the running 6.18 kernel. This corroborates, but is distinct from, per-clock `CLK_IGNORE_UNUSED` flags in the BSP. It does **not** prove all clocks are initially enabled or that early clock drivers work. Do not attribute a pre-PID1 failure to unused-clock shutdown without further evidence.
+
+**Handoff differential still open:** raw gzip with `booti ramdisk:size` (vendor 6.6 control PASS) versus legacy-wrapped tiny uInitrd with `booti ramdisk` (nickyg666 reported 6.18 Zero 3W PASS). This is a format/bootloader-path hypothesis, not a confirmed fault. Keep bootloader, Image, DTB and PMIC unchanged in any controlled interface comparison. The existing `echo OPI3W-VBI: vendor raw Image` line in HBI script is a **stale label** and does not establish which kernel runs; use hashes/UNAME/early execution evidence.
