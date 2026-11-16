@@ -82,8 +82,6 @@ for mode in ("control","identity"):
         check(data[:4]==bytes.fromhex("d00dfeed"),f"{mode}: DTB magic FDT")
         total=int.from_bytes(data[4:8],"big")
         check(40<=total<=len(data),f"{mode}: DTB totalsize within file")
-        if "dtc" in os.environ.get("PATH","") and False:
-            pass
 
 c=RESULTS/"control"/"Image"; i=RESULTS/"identity"/"Image"
 if c.is_file() and i.is_file():
