@@ -90,7 +90,7 @@ def main():
         shutil.copyfileobj(src, dst, 8 * 1024 * 1024)
     loop = None
     mounted = False
-    changed = False
+    complete = False
     try:
         loop = run("losetup", "--find", "--show", "--offset", str(65536 * 512),
                    "--sizelimit", str(8577024 * 512), str(out)).stdout.strip()
@@ -119,18 +119,18 @@ def main():
             os.chmod(stage, st.st_mode & 0o7777)
             os.chown(stage, st.st_uid, st.st_gid)
             os.replace(stage, dest)
-            changed = True
             verify(root, sha(probe))
             os.sync()
             run("umount", str(root))
             mounted = False
         run("e2fsck", "-fn", loop)
+        complete = True
     finally:
         if mounted:
             run("umount", str(root), check=False)
         if loop:
             run("losetup", "-d", loop, check=False)
-        if not changed:
+        if not complete:
             # Never leave an incomplete copy that looks like a test image.
             out.unlink(missing_ok=True)
     if sha(out, 32 * 1024 * 1024) != FIRMWARE_PREFIX_SHA:
