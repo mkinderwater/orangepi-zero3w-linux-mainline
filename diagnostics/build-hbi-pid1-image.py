@@ -23,7 +23,7 @@ FILE_HASHES = {
     "boot/mainline/hybrid-0.2.7-vbi/sun60i-a733-orangepi-zero3w.dtb": "5c9cd102215183cc56150aab2ce331216bea26d80741cdfc1fb0d95f5818e7b9",
 }
 INITRD = "boot/mainline/hybrid-0.2.7-vbi/initrd.img-6.18.19-opi3w-hybrid-0.2.7"
-FIRMWARE_PREFIX_SHA = "10fe537251b4262236f54d729c258706ad41419c3411dd2201ffc57e4924a9b0"
+FIRMWARE_RESERVED_BYTES = 32 * 1024 * 1024
 
 def run(*argv, check=True):
     return subprocess.run(argv, check=check, text=True, capture_output=True)
@@ -70,8 +70,11 @@ def main():
     if source == out or not source.is_file() or not probe.is_file() or out.exists():
         ap.error("source and probe must exist, output must be new and distinct")
     require_hash(source, SOURCE_SHA)
-    if sha(source, 32 * 1024 * 1024) != FIRMWARE_PREFIX_SHA:
-        raise RuntimeError("source firmware prefix differs from known HBI")
+    # Pin the exact known full donor, then independently require the entire
+    # reserved 32 MiB to remain byte-for-byte identical after image assembly.
+    # Historical 'bootloader_reserved_region_sha256' was not documented as a
+    # SHA256 over raw bytes [0, 32 MiB), so do not equate those values.
+    source_prefix_sha = sha(source, FIRMWARE_RESERVED_BYTES)
     run("gzip", "-t", str(probe))
     listing = run("bash", "-o", "pipefail", "-c",
                   'gzip -dc "$1" | cpio -it --quiet', "archive", str(probe)).stdout.splitlines()
@@ -133,15 +136,19 @@ def main():
         if not complete:
             # Never leave an incomplete copy that looks like a test image.
             out.unlink(missing_ok=True)
-    if sha(out, 32 * 1024 * 1024) != FIRMWARE_PREFIX_SHA:
-        raise RuntimeError("firmware prefix changed unexpectedly")
+    output_prefix_sha = sha(out, FIRMWARE_RESERVED_BYTES)
+    if output_prefix_sha != source_prefix_sha:
+        out.unlink(missing_ok=True)
+        raise RuntimeError("firmware reserved prefix changed unexpectedly")
     record = {
         "status": "ASSEMBLED_OFFLINE_NOT_HARDWARE_TESTED",
         "parent_image": str(source),
         "parent_sha256": SOURCE_SHA,
         "image": str(out),
         "image_sha256": sha(out),
-        "firmware_prefix_sha256": FIRMWARE_PREFIX_SHA,
+        "firmware_reserved_bytes": FIRMWARE_RESERVED_BYTES,
+        "firmware_prefix_sha256": output_prefix_sha,
+        "firmware_prefix_source_sha256": source_prefix_sha,
         "changed_file": "/" + INITRD,
         "original_initrd_sha256": SOURCE_INITRD_SHA,
         "probe_initrd_sha256": sha(probe),
