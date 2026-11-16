@@ -45,20 +45,37 @@ else:
         raise SystemExit('STOP: identity DTS unexpectedly changed')
 print('DT_SOURCE_VALIDATED:'+mode)
 PY
-if [[ "$MODE" == control ]]; then
-  [[ -z "$(git -C "$TREE" status --porcelain)" ]] || { echo 'STOP: control tree dirty' >&2; exit 3; }
-else
-  python3 - "$TREE" "$DTS_REL" <<'PY'
+# Keep Linux's pinned tree pristine. Apply the host Make 4.4 compatibility
+# adjustment only in the disposable build worktree, and audit both diffs.
+python3 - "$TREE" "$MODE" "$DTS_REL" <<'PY'
 import subprocess,sys
-root,path=sys.argv[1:]
-changed=subprocess.check_output(['git','-C',root,'diff','--name-only'],text=True).splitlines()
-assert changed==[path],f'STOP: unexpected changes: {changed}'
-diff=subprocess.check_output(['git','-C',root,'diff','--',path],text=True)
-assert diff.count('-	compatible = "xunlong,orangepi-4-pro", "arm,sun60iw2p1";')==1
-assert diff.count('+	compatible = "xunlong,orangepi-zero3w", "arm,sun60iw2p1";')==1
-print('ONE_PROPERTY_DTS_CHANGE_VERIFIED')
+from pathlib import Path
+root,mode,dts=Path(sys.argv[1]),sys.argv[2],sys.argv[3]
+mk=root/'Makefile'
+old='%/config/auto.conf %/config/auto.conf.cmd %/generated/autoconf.h %/generated/rustc_cfg: $(KCONFIG_CONFIG)'
+new='%/config/auto.conf %/config/auto.conf.cmd %/generated/autoconf.h %/generated/rustc_cfg &: $(KCONFIG_CONFIG)'
+s=mk.read_text()
+if s.count(old)==1 and new not in s:
+    mk.write_text(s.replace(old,new,1))
+elif s.count(new)!=1 or old in s:
+    raise SystemExit('STOP: unexpected Kbuild rule')
+changed=subprocess.check_output(['git','-C',str(root),'diff','--name-only'],text=True).splitlines()
+expected=['Makefile'] if mode=='control' else ['Makefile',dts]
+if sorted(changed)!=sorted(expected):
+    raise SystemExit(f'STOP: unexpected tracked modifications: {changed}')
+diff=subprocess.check_output(['git','-C',str(root),'diff','--','Makefile'],text=True)
+removed=[line for line in diff.splitlines() if line.startswith('-') and not line.startswith('---')]
+added=[line for line in diff.splitlines() if line.startswith('+') and not line.startswith('+++')]
+if removed!=['-'+old] or added!=['+'+new]:
+    raise SystemExit('STOP: Kbuild compatibility patch differs')
+if mode=='identity':
+    patch=subprocess.check_output(['git','-C',str(root),'diff','--',dts],text=True)
+    expected_old='compatible = "xunlong,orangepi-4-pro", "arm,sun60iw2p1";'
+    expected_new='compatible = "xunlong,orangepi-zero3w", "arm,sun60iw2p1";'
+    if patch.count('-\t'+expected_old)!=1 or patch.count('+\t'+expected_new)!=1:
+        raise SystemExit('STOP: identity DTS diff differs')
+print('GROUPED_KBUILD_RULE_AND_SOURCE_DIFF_VERIFIED')
 PY
-fi
 mkdir -p "$OBJ"
 if [[ ! -f "$OBJ/.config" ]]; then
   cp "$WORK_ROOT/vendor-a733.config" "$OBJ/.config"
@@ -86,13 +103,15 @@ mkdir -p "$OUT"
 cp "$IMAGE" "$OUT/Image"
 cp "$DTB" "$OUT/sun60i-a733-orangepi-zero3w.dtb"
 git -C "$TREE" diff -- "$DTS_REL" > "$OUT/dts.patch"
+git -C "$TREE" diff -- Makefile > "$OUT/kbuild-make-compat.patch"
 {
   echo "SOURCE_COMMIT=$PIN"
   echo "MODE=$MODE"
   echo "SOURCE=$TREE"
   echo "BUILD=$OBJ"
+  echo "KBUILD_COMPAT=GNU_MAKE_GROUPED_TARGET_SYNC"
   echo "KERNEL_VERSION=$(make -s -C "$TREE" O="$OBJ" ARCH=arm64 kernelrelease)"
   sha256sum "$WORK_ROOT/vendor-a733.config" "$OBJ/.config" "$TREE/$DTS_REL" "$IMAGE" "$DTB"
 } > "$OUT/build-manifest.txt"
-(cd "$OUT" && sha256sum Image sun60i-a733-orangepi-zero3w.dtb dts.patch build-manifest.txt > SHA256SUMS)
+(cd "$OUT" && sha256sum Image sun60i-a733-orangepi-zero3w.dtb dts.patch kbuild-make-compat.patch build-manifest.txt > SHA256SUMS)
 echo "BUILT_OFFLINE_NOT_FLASHABLE_NOT_HARDWARE_TESTED: $OUT"
