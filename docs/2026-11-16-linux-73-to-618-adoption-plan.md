@@ -98,3 +98,26 @@ grep -n -E 'sun60iw2.*probe|sun60iw2.*init|CLK_IGNORE_UNUSED|CLK_IS_CRITICAL' "$
 Review the actual **clock source** before any patch or kernel recompilation. `sed -n 520,690p` should expose specific gates if local source resembles pinned donor; do not assume line numbers if transformed. Then run the independent `audit-618-booti-handoff.py` for the other hypothesis.
 
 **Disposition:** no confirmed Linux 6.18 clock-root cause yet; no source code or hardware change approved.
+
+## 2026-11-16 local hybrid source verification: gate map confirmed
+
+Operator inspected **actual** hybrid build file `/root/opi3w-hybrid-build-0.2.7/linux/bsp/drivers/clk/sunxi-ng/ccu-sun60iw2.c`, SHA256 `6627594bbbfdf3e7883b6f052f78b4e3f8feca91631b44025cb0cb8be57bc199` and showed lines 520–690. The gate definitions agree with the pinned BSP donor previously audited.
+
+| Clock / physical register | Compiled hybrid source | 7.3 patch correspondence |
+| --- | --- | --- |
+| CPUS HCLK 0x05C0 bit 28 | `CLK_IGNORE_UNUSED` | 6008 retains as critical |
+| MSI-Lite0 0x0594 bit 0 | `CLK_IGNORE_UNUSED` | 6009 |
+| MSI-Lite1 0x059C bit 0 | `CLK_IGNORE_UNUSED` | 6009 |
+| **MSI-Lite2 0x05A4 bit 0** | **`0` unprotected** | 6009 |
+| MSI-Lite0 AHB 0x05C0 bit 16 | `CLK_IGNORE_UNUSED` | 6009 |
+| MSI-Lite0 MBUS 0x05E0 bit 29 | `CLK_IGNORE_UNUSED` | 6009 |
+| MSI-Lite2 MBUS 0x05E0 bit 31 | `CLK_IGNORE_UNUSED` | 6009 |
+| USB AHB 0x05C0 bit 9 | `CLK_IGNORE_UNUSED` | 6010 |
+| Display AHB 0x05C0 bit 5 | `CLK_IS_CRITICAL` | 6022 |
+| Display MBUS 0x05E0 bit 11 | `CLK_IS_CRITICAL` | 6022 |
+
+**Assessment:** Most of the Linux 7.3 gate-retention rationale is already represented in the actual 6.18 vendor BSP. `CLK_IGNORE_UNUSED` prevents disabling unused clocks, while `CLK_IS_CRITICAL` additionally marks clocks as critical; they are not identical. Neither flag proves a gate was enabled, clock registered or runtime PSCI operation succeeded.
+
+MSI-Lite2 is a verified **unprotected source declaration**, but its runtime users, link status and relevance **before PID1** are unverified. Clock cleanup is generally late initialization; do not attribute pre-entry silence to MSI-Lite2 or apply 6009 blindly. The source includes keyed writes to the AHB/MBUS registers (`AHB_MASTER_KEY_VALUE`, `MBUS_MASTER_KEY_VALUE`), so replacing register writes with generic code is unsafe.
+
+**Decision:** defer clock change pending a demonstrated consumer dependency or runtime stage. Continue the separate exact U-Boot `booti`/initrd handoff audit and artifact identity checks. No new kernel, image or SD write. Preserve firstboot LED observation without reopening its deferred investigation.
