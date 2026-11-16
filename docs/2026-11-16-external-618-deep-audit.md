@@ -119,3 +119,31 @@ These nested dependencies matter. A successful build badge is not proof that a 4
 - [our 2026-11-15 boot-chain and hybrid notes](https://github.com/mkinderwater/orangepi-zero3w-linux-mainline/blob/main/docs/2026-11-15-boot-chain.md)
 
 **Security:** Do not copy operating credentials, Wi-Fi passwords, serialized identifiers or other private network records from upstream development notes into our report or commits.
+
+## 2026-11-16 post-legacy-handoff reassessment: target the *kernel binary*, not the wrapper
+
+Physical controlled pair completed: vendor 6.6.98 with legacy `uInitrd` and address-only `booti` **boots with HDMI**. Linux 6.18.19 with same coherent interface and unchanged hybrid Image/DTB **does not demonstrate PID1 start**, twice, showing one LED flash then off and persistent bootloader splash. This reduces the explanatory power of a generic initrd-format mismatch. No U-Boot UART trace yet, so physical kernel entry remains **unknown**.
+
+Re-reviewed [nickyg666/orangepi-zero3w-mainline AGENTS.md](https://github.com/nickyg666/orangepi-zero3w-mainline/blob/master/AGENTS.md) and [reference/boot.cmd](https://github.com/nickyg666/orangepi-zero3w-mainline/blob/master/reference/boot.cmd) and the [Linux arm64 Image boot protocol](https://www.kernel.org/doc/html/v6.16/arch/arm64/booting.html).
+
+**Lead 1, high priority:** the only externally reported working **Zero 3W** 6.18 Image was `26,114,056` bytes. Ours is `8,591,368` bytes with valid ARM64 header and effective image size `9,043,968`. The difference is *not evidence of corruption*; it does mean kernel identity/config/module linkage has **not** been reproduced. Working config was extracted outside upstream GitHub and isn't published, so source comparison cannot assert equivalence. Inventory relevant `System.map` built-in init and boot symbols, compiled `.config`, linker map/sections, actual `Image` and DTB against the reported port requirements. Ensure `CONFIG_AW_TWI=y`, `AW_MFD_AXP2101=y`, `AW_UART_NG=y`, `AW_SUN60IW2_CCU=y`, pinctrl, and driver **initcalls** actually linked.
+
+**Lead 2, high priority:** exact DTB to **driver OF compatible match** across critical early boot graph: A733 main and R CCU, pinctrl, UART, PSCI/CPU enable-method, GIC interrupt controller, fixed clocks, AXP8191 TWI and sdc0 regulator. A `CONFIG_*=y` line or DTS presence alone proves neither initialization nor binding. In pinned BSP `ccu-sun60iw2.c`, `CLK_OF_DECLARE(sun60iw2_ccu_init, "allwinner,sun60iw2-ccu", ...)` requires **exact** DTB match. Validate *the compiled HBI DTB*, not only source DTS.
+
+**Lead 3, after entry established:** external nickyg's working MMC is `CONFIG_MMC_SUNXI` with patched DTB compatibles and regulator supply, whereas ours is vendor `AW_MMC=y`. This is a concrete divergent implementation but MMC/rootfs cannot by itself explain loss of the pre-PID1 diagnostic unless an earlier kernel subsystem stalls. Do not change MMC and clocks together.
+
+**New fact re Image flags:** our header flags `0xa` mean **little endian, 4 KiB pages, flexible 2 MiB aligned physical placement** under the published ARM64 boot protocol. These flags are valid; don't classify as corrupt or a smoking gun. Our 0x41000000 load is 2 MiB aligned, header text_offset zero. Runtime U-Boot relocation remains unobserved.
+
+**Source document nuance:** nickyg's `reference/boot.cmd` comments describe a raw initrd while script actually loads `tiny-uInitrd`, and its AGENTS.md documents a legacy-wrapped ramdisk. Treat the textual remarks cautiously; actual deployed bytes and U-Boot runtime would be necessary to settle the exact relocation path. Our coherent alternate has now been hardware-tested and was not sufficient.
+
+**Read-only operator extraction, no rebuild or flash:**
+```bash
+K=/root/opi3w-hybrid-build-0.2.7
+dtc -I dtb -O dts -o /tmp/hbi-a733.dts "$K/stage/boot/sun60i-a733-orangepi-zero3w.dtb"
+grep -n -C 3 -E 'allwinner,sun60iw2-ccu|allwinner,sun60iw2-r-ccu|allwinner,uart-v100|allwinner,sunxi-twi-v101|psci|enable-method|interrupt-controller@|mmc@4020000|vmmc-supply|gpio-leds' /tmp/hbi-a733.dts | head -220
+find "$K" -name System.map -o -name vmlinux
+grep -E '^CONFIG_(ARM64_(4K_PAGES|VA_BITS|PA_BITS)|AW_(SUN60IW2_CCU|PINCTRL_SUN60IW2|PINCTRL_SUN60IW2_R|UART_NG|TWI|MMC|MFD_AXP2101|MFD_AXP2101_I2C|REGULATOR_AXP2101)|MMC_SUNXI|OF|SMP|PSCI|SERIAL_EARLYCON)=' "$K/build/.config"
+```
+The next actual source compare should use the **full derived hybrid source** to inspect whether the 6.18 Kbuild linked the expected objects; do not interpret grep excerpt alone as runtime success.
+
+No confirmed smoking gun yet. Prioritize kernel built-in identity and exact OF bindings, not a new boot format or multiple speculative patches.
