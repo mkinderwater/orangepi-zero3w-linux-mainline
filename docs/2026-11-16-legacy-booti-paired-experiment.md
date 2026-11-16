@@ -90,3 +90,13 @@ RuntimeError: Second-stage source hash changed
 Commit `798d691` changes failure diagnostics only: on mismatch, output expected and actual SHA256 plus parsed U-Boot script lines (if header valid). It continues to reject mismatches and deletes the copied partial image.
 
 **Next:** `git pull --ff-only` and rerun the same vendor-profile builder command. Report the `STAGE2_SOURCE_HASH_MISMATCH` block; if only the script's legacy header differs, separately compare the extracted command text, identify provenance and reconcile to a new explicitly pinned full donor. Never weaken the source and retained-file checks.
+
+## U-Boot binary script framing fix (2026-11-16)
+
+On the donor SHA-mismatch diagnostic, the old decoder tried `raw[64:].decode("utf-8")` and encountered `0xb8` in position 3. This is expected for a legacy U-Boot **script** image: after its 64-byte image header, `mkimage -T script` uses an 8-byte multi-image table (`BE32 script_length`, `BE32 0`) followed by the UTF-8 commands and alignment padding. The original parser incorrectly treated the binary length field as command text.
+
+Fix committed `809471f`: parse and validate the script image header (`Linux/ARM/script/none`), the BE32 length table, and zero padding *before* decoding. This parser fix does **not** change the pinned donor SHA, authorize any unknown file, or make a boot claim. A synthetic valid legacy script framing test passed; actual WSL file parsing still needs operator output.
+
+**The SHA mismatch is separate and still unresolved.** After `git pull --ff-only`, rerun the vendor profile command unchanged, and record all lines beginning `STAGE2_SOURCE_HASH_MISMATCH` including `expected:`, `observed:`, and parsed script commands. The tool should continue to fail closed until we reconcile the per-file expected SHA against the exact donor bytes and proven script lineage.
+
+If the original donor copy is already mounted or changed, preserve and audit it rather than relaxing the check or accepting a guessed hash.
