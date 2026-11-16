@@ -127,3 +127,15 @@ Changed: ['boot/mainline/stock-vendor-stage2.scr', 'boot/mainline/verified-vendo
 **Gate passed:** builder completed with donor kernel, DTB, first-stage, firmware-prefix, source SHA and internal logical-file inventory checks. **Still pending:** independent read-only final image audit and **physical Zero 3W boot**. Do not mark vendor legacy interface hardware PASS merely because the image assembled. Do not build/flash the 6.18 hybrid legacy candidate until vendor legacy PID1 HW PASS.
 
 Next inspect `.sha256`, `.audit.json`, and the final image's `uInitrd` / stage2 script independently. Hardware acceptance requires three startup status LED flashes and `UNAME Linux 6.6.98-sun60iw2 aarch64` plus periodic PID1 ALIVE on HDMI/LED. Lack of USB-NIC is expected for this minimal PID1.
+
+## 2026-11-16 physical vendor-control result: HARDWARE BOOT PASS
+
+Operator reported: **"yes booted, and hdmi works"** after writing the verified `opi3w-VBI-LEGACY-PID1-v1.img` to SD and booting the Orange Pi Zero 3W.
+
+**Confirmed by operator:** vendor Linux 6.6.98 legacy-uInitrd handoff boots on actual Zero 3W hardware, and HDMI works. **Not separately stated:** LED three-flash pattern, displayed uname string, repeat `ALIVE` pulses. Do not claim those individual observations were reported. This is a physical boot/display PASS, not yet a separately documented PID1 LED acceptance PASS.
+
+Source image SHA256 `6074fa681afccfa9f0142dc95ca3e5b86dd723b4bcff3b4b1db9ed09e41b78a4` was verified with `sha256sum -c`, and the /home copy matched the donor generated image per operator.
+
+**Decision:** The vendor U-Boot supports a coherent legacy `uInitrd` plus address-only `booti` handoff on Zero 3W. This clears the control-path gate to assemble the separate hybrid 6.18.19 legacy variant. The 6.18 boot remains **UNPROVEN**. Do not change clocks, DTB or firmware during the comparison.
+
+The hybrid builder requires the **exact pinned HBI donor image** SHA256 `6604ba2427c918c893880fcb8f44b8733f1c3e74b5acf91454f77c62e55c88f5`. Locate it by hash before specifying the `--source` path. The previously documented filename is not guaranteed to exist.
