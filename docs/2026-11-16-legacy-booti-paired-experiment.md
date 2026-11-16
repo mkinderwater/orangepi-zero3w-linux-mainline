@@ -139,3 +139,23 @@ Source image SHA256 `6074fa681afccfa9f0142dc95ca3e5b86dd723b4bcff3b4b1db9ed09e41
 **Decision:** The vendor U-Boot supports a coherent legacy `uInitrd` plus address-only `booti` handoff on Zero 3W. This clears the control-path gate to assemble the separate hybrid 6.18.19 legacy variant. The 6.18 boot remains **UNPROVEN**. Do not change clocks, DTB or firmware during the comparison.
 
 The hybrid builder requires the **exact pinned HBI donor image** SHA256 `6604ba2427c918c893880fcb8f44b8733f1c3e74b5acf91454f77c62e55c88f5`. Locate it by hash before specifying the `--source` path. The previously documented filename is not guaranteed to exist.
+
+## 2026-11-16 hybrid legacy PID1: assembler and output checksum PASS, physical test PENDING
+
+Operator built the hybrid profile from hash-qualified `/root/opi3w-HBI-027-vendor-VBI-booti.img` (source SHA256 `6604ba2427c918c893880fcb8f44b8733f1c3e74b5acf91454f77c62e55c88f5`), using the existing PID1 LED v1 gzip probe. The builder reported `ASSEMBLED_OFFLINE_NOT_HARDWARE_TESTED`, then `sha256sum -c` independently returned `opi3w-HBI-027-LEGACY-PID1-v1.img: OK`.
+
+Output: `/root/opi3w-m2-work/opi3w-HBI-027-LEGACY-PID1-v1.img`, SHA256 `2f45477b954f669225badb7faf85d81633a58039d1f6b549df76c9b84e7d3819`.
+
+Exactly two changed logical files:
+- `boot/mainline/hybrid-0.2.7-vbi/initrd.img-6.18.19-opi3w-hybrid-0.2.7`
+- `boot/mainline/stock-vendor-stage2.scr`
+
+Original hybrid kernel retained, SHA256 `e4b2eff08dfc7e2553cf498def6658515f5f2f1e5e8066d0fcc60a73742069c7`.
+Original hybrid DTB retained, SHA256 `5c9cd102215183cc56150aab2ce331216bea26d80741cdfc1fb0d95f5818e7b9`.
+Firmware-prefix integrity enforced and successful in builder, but its value was not repeated in operator's excerpt.
+
+Operator copied the image to `/home`. **The copied `/home` instance has not yet been independently verified in the supplied output.** Before flashing, run `sha256sum /home/opi3w-HBI-027-LEGACY-PID1-v1.img` and compare to the exact output digest above.
+
+**Next gate:** physical SD test. Three initial LED flashes or PID1 textual UNAME 6.18.19+ and repeat ALIVE is strong Linux execution evidence; frozen HDMI splash alone not evidence of non-entry, because vendor kernel plus hybrid DTB previously reached userspace with frozen splash. A single LED blink remains inconclusive. Preserve separate LED observation for future evidence; do not conflate vendor control's HDMI result with 6.18.
+
+Neither a hardware success nor an unchanged boot failure has been reported for the hybrid legacy image.
