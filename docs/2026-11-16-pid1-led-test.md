@@ -46,3 +46,8 @@ Only after vendor LED probe proves the pattern, build from the pinned original H
 Again independently audit and verify the finished SD image. Three pulses would be positive PID1 evidence under 6.18 when flashed artifact/kernel identity is controlled. No pulses and a frozen splash remain inconclusive. Do not diagnose Linux 6.18 as not entering solely from no LED or HDMI.
 
 Neither test boots Debian, mounts the SD root or activates the NIC. Do not expect SSH or link lights.
+## Hardware observation, November 16, 2026
+
+**Vendor 6.6.98 LED PID1 probe: HW PASS (operator-reported, photograph).** HDMI shows `OPI3W_PID1: START`, `UNAME Linux 6.6.98-sun60iw2 aarch64`, `LED_READY status_led: 3 short PID1 flashes`, `HOLD`, and repeating `ALIVE` messages through at least 25 seconds. Operator reports both LED flashing and HDMI worked. This validates the probe and vendor LED output, **not** 6.18 PID1 execution. Do not assume a static photo measures exact LED timing; the three flashes are operator-observed.
+
+Next: create the HBI-derived 6.18 PID1 LED image using the same probe archive and pinned normalizer. Verify image checksum and independently audit the final image before physical testing. Missing LED/HDMI output under 6.18 is inconclusive until driver registration or earlier kernel entry is independently observed.
