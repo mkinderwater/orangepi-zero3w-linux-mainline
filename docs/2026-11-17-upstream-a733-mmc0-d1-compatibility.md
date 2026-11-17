@@ -44,3 +44,34 @@ The script reads binary device trees directly, identifies mmc nodes, property-le
 5. Boot the new Image + DTB using existing proven firmware, serial and reversible boot path; require UART PID1, MMC0 enumeration, SD block availability, no PF voltage panic and repeatable ext4 root mount. Avoid boot claims until achieved.
 
 **No legacy compatibility is inherited:** the one exception is the **upstream-supported D1-compatible MMC controller fallback**, which expresses genuine IP compatibility, not historic BSP ABI support.
+
+## 2026-11-17: real vendor/hybrid MMC DTB audit completed
+
+The operator ran `scripts/audit-a733-mmc-dtb.py` against the A/B-identical staged vendor 6.6.98 DTB and hybrid 0.2.7 DTB. The upstream binding patch `0005-dt-bindings-mmc-a733-d1-fallback.patch` passed `git apply --check` in the combined clean source (the check emitted no errors), and the read-only MMC DTB audit completed.
+
+**Observed configurations are identical in both vendor and hybrid DTBs:**
+
+| Controller | Address | Legacy compatible | status | legacy erase property |
+| --- | --- | --- | --- | --- |
+| MMC0 (SD) | `0x04020000` | `allwinner,sunxi-mmc-v5p3x` | okay | absent |
+| MMC1 (SDIO) | `0x04021000` | `allwinner,sunxi-mmc-v5p3x` | okay | absent |
+| MMC2 | `0x04022000` | `allwinner,sunxi-mmc-v4p6x` | okay | **present** |
+| MMC3 | `0x04023000` | `allwinner,sunxi-mmc-v5p6x` | disabled | **present** |
+
+These MMC node definitions are inherited from vendor and are not supported as-is by the upstream `sunxi-mmc` compatible table. They are not evidence of the underlying physical MMC0 failing.
+
+**Exact regulator phandles for MMC0 (both binaries):**
+- `vmmc-supply`, `vqmmc33sw-supply`, `vdmmc33sw-supply` each resolve to **AXP8191 DC1SW2** (`/soc@3000000/twi@7083000/pmu@36/regulators@0/dc1sw2`).
+- `vqmmc18sw-supply` and `vdmmc18sw-supply` resolve to **AXP8191 CLDO5** (`/soc@3000000/twi@7083000/pmu@36/regulators@0/cldo5`).
+- The above are *vendor DTS wiring references*, not verified output voltages. In particular, a label with `33` or `18` does not electrically verify 3.3 V or 1.8 V on the board.
+- MMC1 and MMC2 report no `*-supply` properties in this audit. This is not proof of an absent physical supply; it flags missing upstream regulator description or different hardware/firmware wiring.
+
+### Near-term boot-minimal policy
+
+1. **MMC0 only:** express hardware-backed `compatible = "allwinner,sun60i-a733-mmc", "allwinner,sun20i-d1-mmc";` in a new upstream board DTS, after inspecting exact A733 module clock, reset, IRQ, pinmux and supplies. The binding patch is source-only and does not make the existing compiled vendor/hybrid DTB upstream compatible.
+2. **No extra hosts:** keep MMC1 for Wi-Fi after SD root is proven, disable MMC2 unless an actual boot/media requirement is established, retain MMC3 disabled. This is a deliberate *new minimal DTB* policy, not permission to edit the known-good vendor DTB.
+3. **Never delete supplies to force probe:** identify and build minimum upstream regulator driver(s) for AXP8191/DC1SW2/CLDO5 and confirm their voltage-selection semantics, especially MMC0 PF bank. `vqmmc33sw-supply`, `vdmmc33sw-supply`, `vqmmc18sw-supply`, `vdmmc18sw-supply` are vendor properties: do not assume the upstream driver consumes them.
+4. **Separate collision:** legacy `mmc-high-capacity-erase-size` is present on MMC2/3, not MMC0. The original 6.18 vendor CAP2 bit-9/UHS-II failure remains proof of bad vendor driver ABI, not evidence of an upstream MMC0 defect.
+5. **No electrical edits:** the new MMC0 DTS must pass regulator phandle and 1.8/3.3V safety review before power switching is allowed. Do not invent vqmmc supply selection or hardcode a rail voltage.
+
+Next: verify AXP8191 register/supply bindings and upstream MFD/regulator source support, then build a canonical MMC0-only Zero 3W DTS. The clean 4,429,832-byte upstream ARM64 Image is a compile baseline, not a bootable image.
