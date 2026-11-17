@@ -89,3 +89,18 @@ stat -c 'HYBRID_IMAGE_BYTES=%s' /root/opi3w-hybrid-build-0.2.7/stage/boot/Image
 ```
 
 Next integration focus: upstream SD/MMC0 controller, exact clock/reset/DTB pairing, and verified AXP8191/AXP515 PMIC supply paths. Preserve this clean full-link baseline and the original 0.2.7 UART/PID1 control independently.
+
+## 2026-11-17: measured reduction and verified linked A733 symbols
+
+Operator measured the combined clean ARM64 Image and the original HBI 0.2.7 hybrid Image:
+
+| Image | Bytes | SHA256 |
+| --- | ---: | --- |
+| Combined clean upstream Linux 6.18 | **4,429,832** | `24f58c911c8f382ee48c63952280d504ebe8f1412786fa37fb8af5a38dd8247e` |
+| Original hybrid Linux 6.18.19 | **8,591,368** | Prior established Image identity `e4b2eff08dfc7e2553cf498def6658515f5f2f1e5e8066d0fcc60a73742069c7` |
+
+**Difference: 4,161,536 bytes, approximately 48.4% smaller**, comparing raw `Image` files (not compressed or deployed sizes). This is a baseline-to-current comparison, **not** an apples-to-apples feature set: the clean image deliberately excludes vendor drivers, USB, networking and GPU, and lacks boot-critical board integration.
+
+Final effective `.config` confirms `CONFIG_PINCTRL_SUN60I_A733=y`, `CONFIG_SUN60I_A733_CCU=y`, `CONFIG_SUN60I_A733_R_CCU=y`, `CONFIG_MMC_SUNXI=y`. `System.map` contains `sun60i_a733_ccu_probe`, `sun60i_a733_r_ccu_probe`, their clock/reset maps and init functions, plus the `pinctrl_sun60i_a733` driver initcall. This is **link-time proof**, not actual DT match/probe on Zero 3W.
+
+The next gate should add the minimum tested A733-compatible SD/MMC0 host, supply/regulator dependencies and canonical board DTS in a separate new build. Do not misrepresent `MMC_SUNXI=y` as confirmed A733 SD storage capability: the pinned 6.18 MMC match table has no explicit A733 compatible.
