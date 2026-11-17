@@ -83,3 +83,19 @@ python3 scripts/build-axp318w-clean-driver.py \
  --output /root/opi3w-m2-work/axp318w-clean-compile-v1 \
  --jobs 4
 ```
+
+## Operator validation: isolated AXP318W MFD/regulator compile PASS
+
+The WSL compilation completed successfully from the five reviewed upstream v8 patches, applied to a separate source copy of clean Linux 6.18. The operator's output showed the three expected objects:
+
+```text
+CC drivers/mfd/axp20x.o
+CC drivers/mfd/axp20x-i2c.o
+CC drivers/regulator/axp20x-regulator.o
+AXP318W_MFD_REGULATOR_COMPILE_PASS
+NOT_HARDWARE_VALIDATED: do not bind AXP8191 to AXP318W until register identity confirmed
+```
+
+Result: **source applicability 5/5, compile PASS**. No full combined kernel link including PMIC, no live regulator programming, no electrical proof, and no AXP8191-compatible alias have been tested.
+
+Next: search the vendor's generic AXP core and regulator definitions, which need not have `8191` in their filenames. Confirm AXP8191 chip identity and CLDO5/SWOUT2 register mapping, then merge PMIC into a new clean source track without modifying the 4,429,832-byte combined CCU+pinctrl baseline.
