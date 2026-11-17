@@ -22,7 +22,7 @@ SC="$SRC/scripts/config"
 # Explicitly requested baseline features. No vendor or unrelated device families.
 enable=(
   64BIT MMU SMP ARM64
-  BLOCK
+  BLOCK ARCH_SUNXI SUNXI_CCU
   ARM64_VA_BITS_48
   OF OF_EARLY_FLATTREE
   BLK_DEV_INITRD BINFMT_ELF
@@ -30,7 +30,6 @@ enable=(
   TTY SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_EARLYCON
   MMC MMC_BLOCK MMC_SUNXI
   REGULATOR PINCTRL
-  MFD_CORE
   EXT4_FS
   PM
   PRINTK
@@ -75,10 +74,10 @@ printf 'disabled:         '; grep -c '^# CONFIG_.* is not set$' "$CONFIG" || :
 echo "=== Requested options unresolved (hard gate for boot dependencies) ==="
 awk -F '\t' 'NR>1 && $2=="y" && $3!="y" {print $1, $3}' "$OUT/config-resolution.tsv"
 echo "=== Hard gates ==="
-for s in ARM64 OF DEVTMPFS BLOCK MMC MMC_BLOCK MMC_SUNXI EXT4_FS BLK_DEV_INITRD SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_EARLYCON; do
+for s in ARM64 ARCH_SUNXI SUNXI_CCU OF DEVTMPFS BLOCK MMC MMC_BLOCK MMC_SUNXI EXT4_FS BLK_DEV_INITRD SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_EARLYCON; do
  if ! grep -q "^CONFIG_${s}=y$" "$CONFIG"; then echo "MISSING REQUIRED $s" >&2; FAIL=1; fi
 done
 if [[ "$FAIL" -ne 0 ]]; then echo "FAIL: clean config missing a hard gate" >&2; exit 3; fi
 echo "CLEAN_CONFIG_PREPARED=$CONFIG"
-echo "NOT_BOOTABLE: still require A733 CCU, pinctrl, PMIC, SD/MMC controller, console and DTB hardware validation"
+echo "NOT_BOOTABLE: generic SUNXI_CCU is not proof of A733-specific clock/reset support; verify A733 CCU, pinctrl, PMIC and MMC controller and DTB"
 echo "Network/USB/GPU intentionally excluded from the boot-minimal profile"
