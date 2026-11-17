@@ -30,3 +30,11 @@ Stored in conversation uploads named `Pasted text(20261117-161958).txt` and `Pas
 - RAM-A boot reported Linux `6.18.19+` built 2026-11-17 09:53:33 CST, strongly consistent with this output. Image hash equivalence not yet verified.
 - Exact MMC core: `mmc_select_voltage()` at line 1120; `ocr &= host->ocr_avail` before `if (!ocr)`; host calls `mmc_of_parse(mmc)` at line 1441, then `mmc_add_host(mmc)` at line 1469. Host logs initialized at the end of probe.
 - **Next action:** Copy tree and out-of-tree build config before applying diagnostic-only variant A. Verify patch anchors and compiler output; do not overwrite original `Image`.
+
+## MMC-A build artifact reported (2026-11-17)
+
+- User reports `CONFIG_MMC_SUNXI=y` in isolated `/root/opi3w-m2-work/a733-mmc-ocr-A/obj/.config`.
+- RAM-A source Image SHA-256: `00c0c75967aa41bd9e31f3db6330502ba220e64ceeecc6b6ba0e015d94a9c23b`.
+- MMC-A output Image SHA-256: `65f92c0df0b389fbd5d4a2b3fab1c29a85e67a689b3ae64f4e9ec77c4297f135`.
+- Build output exists, hashes differ. Patch installation, `vmlinux` diagnostic-string presence, deployment and hardware results **not yet independently confirmed**.
+- Planned on-card filename: `/mainline/Image-mmc-ocr-A`, preserving `/mainline/Image` and stage2 boot script unchanged.
