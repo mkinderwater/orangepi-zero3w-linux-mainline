@@ -81,3 +81,21 @@ Before using the experimental config and firmware, construct a distinct, reviewa
 - GPU render, suspend/resume, power and temperature are measured on physical Zero 3W without compromising SD/MMC boot.
 
 **Bottom line:** upstream-first is feasible with a small 6.18 backport. The driver backport is staged. An actual GPU-enabled image is blocked on *safe DTB + OPP + firmware* integration and independently stable MMC/PF.
+
+## 2026-11-17 actual hybrid 6.18.19 WSL preflight: PASS
+
+Operator ran `scripts/audit-a733-upstream-gpu.sh /root/opi3w-hybrid-build-0.2.7` after pulling commit `63ace1d`.
+
+- Mainline PCK600 source SHA256: `c458425acacea0852751962548d16b7debddca5648a51efda7319488687d4887`.
+- `0002-pmdomain-sunxi-a733-upstream-pck600.patch` **PASS** (`git apply --check`).
+- `0003-dt-bindings-a733-pck600-ids.patch` **PASS** (`git apply --check`).
+- Current effective configuration: `CONFIG_DRM_POWERVR=n`, `CONFIG_SUN55I_PCK600=n`, `CONFIG_AW_GPU_PM_DOMAINS=n`, `CONFIG_AW_PM_DOMAINS=n`, `CONFIG_AW_PCK600_DOMAINS=n`.
+- Actual `/soc@3000000/gpu-opp-table` default raw `opp-microvolt` values, measured by `fdtget -t x` (not electrical measurement):
+  - 400 MHz: `0xc3500` = 800000 µV (800 mV).
+  - 600 MHz: `0xc3500` = 800000 µV (800 mV).
+  - 800 MHz: `0xcd140` = 840000 µV (840 mV).
+  - 1008 MHz: `0xea600` = 960000 µV (960 mV).
+
+These are **requested default OPP voltages** from the DTB, not observed voltages. The 1008 MHz OPP remains present. No source files, regulators or SD card were altered.
+
+**Next stage:** work only in a separate kernel source/build directory. Resolve PCK600 provider ownership and all its consumers before replacing the old nested provider in the experimental DTB; translate OPP to standard `operating-points-v2` compatible only after validating silicon-bin behavior; verify BXM-4-64 firmware. Build the experimental `CONFIG_DRM_POWERVR=y` and `CONFIG_SUN55I_PCK600=y` configuration and verify the final effective .config. No flash until MMC/PF stabilization and independent GPU validation.
