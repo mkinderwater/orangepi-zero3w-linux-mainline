@@ -49,6 +49,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--hybrid", type=Path, default=Path("/root/opi3w-hybrid-build-0.2.7/linux"))
     p.add_argument("--mainline", type=Path, default=Path("/root/opi3w-hybrid-sources-0.1.0/linux"))
+    p.add_argument("--bsp-reference", type=Path, default=None, help="pinned BSP source root")
+    p.add_argument("--full-core", action="store_true", help="hash all core files")
     p.add_argument("--vendor", type=Path, default=None,
                    help="optional known vendor 6.6.98 source root")
     p.add_argument("--repo", type=Path, default=Path("/root/orangepi-zero3w-linux-mainline"))
@@ -64,9 +66,36 @@ def main():
                     warning="read-only; not hardware-validation or full reproducibility",
                     git=dict(mainline=get_status(a.mainline),
                              hybrid=get_status(a.hybrid), repo=get_status(a.repo)),
-                    core={}, mmc={}, patches=[], device_trees=[], configurations={})
+                    core={}, mmc={}, patches=[], device_trees=[], configurations={}, bsp_comparison=None, full_core_comparison=None)
     for name in ("Kbuild", "Kconfig", "Makefile"):
         evidence["core"][name] = compare(a.hybrid / name, a.mainline / name)
+    if a.full_core:
+        source = {str(x.relative_to(a.hybrid)): x for x in a.hybrid.rglob("*")
+                  if x.is_file() and ".git" not in x.parts
+                  and "bsp" not in x.relative_to(a.hybrid).parts}
+        base = {str(x.relative_to(a.mainline)): x for x in a.mainline.rglob("*")
+                if x.is_file() and ".git" not in x.parts}
+        changes = {"changed": [], "added": [], "removed": []}
+        for name in sorted(set(source) | set(base)):
+            left, right = source.get(name), base.get(name)
+            if left is None: changes["removed"].append(name)
+            elif right is None: changes["added"].append(name)
+            elif sha(left) != sha(right): changes["changed"].append(name)
+        evidence["full_core_comparison"] = changes
+    if a.bsp_reference:
+        if not (a.bsp_reference / "drivers").is_dir():
+            p.error("--bsp-reference must contain drivers/")
+        source = {str(x.relative_to(a.hybrid / "bsp")): x
+                  for x in (a.hybrid / "bsp").rglob("*") if x.is_file()}
+        reference = {str(x.relative_to(a.bsp_reference)): x
+                     for x in a.bsp_reference.rglob("*")
+                     if x.is_file() and ".git" not in x.parts}
+        changes = {"changed": [], "missing_from_donor": []}
+        for name, left in sorted(source.items()):
+            right = reference.get(name)
+            if right is None: changes["missing_from_donor"].append(name)
+            elif sha(left) != sha(right): changes["changed"].append(name)
+        evidence["bsp_comparison"] = changes
     srcmmc = a.hybrid / "bsp/drivers/mmc"
     for name in ("sunxi-mmc.c", "sunxi-mmc.h", "sunxi-mmc-v5p3x.c"):
         evidence["mmc"][name] = snapshot(srcmmc / name)
@@ -122,6 +151,13 @@ def main():
           "## Core changes vs pinned 6.18", ""]
     for name, data in evidence["core"].items():
         md.append(f"- {name}: {data['status']}")
+    for label, data in (("Core tree", evidence["full_core_comparison"]),
+                        ("BSP tree", evidence["bsp_comparison"])):
+        if data is not None:
+            md += ["", f"## {label} complete hash comparison", ""]
+            for kind, names in data.items():
+                md.append(f"- {kind}: {len(names)}")
+                md.extend(f"  - {name}" for name in names)
     md += ["", "## Vendor MMC macro collisions", ""]
     for c in conflicts:
         md.append(f"- **BIT({c['bit']})**: {c['legacy']} aliases {c['modern']}")
