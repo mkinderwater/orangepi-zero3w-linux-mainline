@@ -1,0 +1,36 @@
+From: Upstream compatibility backport for A733 CCU v7
+Subject: [PATCH] clk: sunxi-ng: expose feature-capable MUX/GATE data macro
+
+Linux 6.18 provides struct ccu_common.features but lacks the
+SUNXI_CCU_M_DATA_WITH_MUX_GATE_FEAT initializer used by the A733 v7
+MBUS and DRAM clocks. Add the upstream macro without changing existing
+clock definitions. Original implementation: upstream ccu_div.h.
+
+---
+diff --git a/drivers/clk/sunxi-ng/ccu_div.h b/drivers/clk/sunxi-ng/ccu_div.h
+--- a/drivers/clk/sunxi-ng/ccu_div.h
++++ b/drivers/clk/sunxi-ng/ccu_div.h
+@@ -212,6 +212,23 @@
+ 	SUNXI_CCU_M_WITH_GATE(_struct, _name, _parent, _reg,		\
+ 			      _mshift, _mwidth, 0, _flags)
+ 
++#define SUNXI_CCU_M_DATA_WITH_MUX_GATE_FEAT(_struct, _name, _parents, _reg, \
++					    _mshift, _mwidth,		\
++					    _muxshift, _muxwidth,	\
++					    _gate, _flags, _features)	\
++	struct ccu_div _struct = {					\
++		.enable	= _gate,					\
++		.div	= _SUNXI_CCU_DIV(_mshift, _mwidth),		\
++		.mux	= _SUNXI_CCU_MUX(_muxshift, _muxwidth),		\
++		.common	= {						\
++			.reg		= _reg,				\
++			.features	= _features,			\
++			.hw.init	= CLK_HW_INIT_PARENTS_DATA(_name, \
++								   _parents, \
++								   &ccu_div_ops, \
++								   _flags), \
++		},							\
++	}
+ #define SUNXI_CCU_M_DATA_WITH_MUX_GATE(_struct, _name, _parents, _reg,	\
+ 				       _mshift, _mwidth,		\
+ 				       _muxshift, _muxwidth,		\
