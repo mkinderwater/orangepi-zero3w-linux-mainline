@@ -65,11 +65,56 @@ def patches(path):
                     "body": text, "files": files})
     return out
 
-def validate_group(name, parsed, source, work, out):
+def rename_first_pinctrl_patch(work):
+    """6.18 semantic backport of the rename-only pinctrl patch 1/7.
+
+    Never edit source checkout. Require exact old token and known affected files.
+    This deliberately does NOT substitute any register or IRQ behavior.
+    """
+    old = "SUNXI_PINCTRL_NEW_REG_LAYOUT"
+    new = "SUNXI_PINCTRL_NCAT2_REG_LAYOUT"
+    paths = (
+        "drivers/pinctrl/sunxi/pinctrl-sun20i-d1.c",
+        "drivers/pinctrl/sunxi/pinctrl-sun55i-a523-r.c",
+        "drivers/pinctrl/sunxi/pinctrl-sun55i-a523.c",
+        "drivers/pinctrl/sunxi/pinctrl-sunxi.c",
+        "drivers/pinctrl/sunxi/pinctrl-sunxi.h",
+    )
+    replacements = {}
+    for item in paths:
+        file = work / item
+        if not file.is_file():
+            raise ValueError("Missing prerequisite for rename: " + item)
+        data = file.read_text()
+        if old not in data:
+            raise ValueError("Expected legacy token absent: " + item)
+        if new in data:
+            raise ValueError("Mixed old/new layout flags: " + item)
+        replacements[file] = data.replace(old, new)
+    for file, body in replacements.items():
+        file.write_text(body)
+    return {str(f.relative_to(work)): body.count(new) for f, body in replacements.items()}
+
+
+def validate_group(name, parsed, source, work, out, adapt_rename=False):
     results = []
     for i, patch in enumerate(parsed, 1):
         file = out / (name + "-%02d.patch" % i)
         file.write_text(patch["body"])
+        if adapt_rename and name == "pinctrl-base" and i == 1:
+            try:
+                changed = rename_first_pinctrl_patch(work)
+            except (ValueError, OSError) as err:
+                results.append({"order": i, "subject": patch["subject"],
+                                "message_id": patch["mid"], "paths": patch["files"],
+                                "check": False, "diagnostic": str(err)})
+                break
+            results.append({"order": i, "subject": patch["subject"],
+                            "message_id": patch["mid"], "paths": patch["files"],
+                            "check": True, "scratch_apply": True,
+                            "adaptation": "6.18 semantic flag rename only; not a clean patch apply",
+                            "renamed_file_counts": changed, "diagnostic": ""})
+            continue
         rc, msg = command("git", "apply", "--check", str(file), cwd=work)
         record = {"order": i, "subject": patch["subject"], "message_id": patch["mid"],
                   "paths": patch["files"], "check": rc == 0, "diagnostic": msg}
@@ -88,6 +133,8 @@ def main():
     p.add_argument("--archive", type=Path, required=True)
     p.add_argument("--source", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--adapt-pinctrl-rename", action="store_true",
+                   help="Apply only rename-only 1/7 semantics to scratch files for 6.18")
     args = p.parse_args()
     if args.output.exists():
         p.error("Refusing to overwrite output directory")
@@ -105,7 +152,8 @@ def main():
         args.output.mkdir(parents=True)
         report = {"source": str(args.source.resolve()),
                   "archive_sha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
-                  "groups": {}, "notice": "STATIC ONLY: no build, hardware or voltage tests"}
+                  "groups": {}, "notice": "STATIC ONLY: no build, hardware or voltage tests",
+                  "adapt_pinctrl_rename": args.adapt_pinctrl_rename}
         # All patch groups share a base tree only within pinctrl branch.
         for stage in ("ccu-v7", "pinctrl"):
             names = ("ccu-v7",) if stage == "ccu-v7" else (
@@ -127,7 +175,8 @@ def main():
                 if blocked:
                     report["groups"][name] = {"status": "BLOCKED_BY_PRIOR_SERIES"}
                     continue
-                entries = validate_group(name, groups[name], args.source, work, args.output)
+                entries = validate_group(name, groups[name], args.source, work, args.output,
+                                         adapt_rename=args.adapt_pinctrl_rename)
                 success = len(entries) == EXPECTED[name] and all(
                     e["check"] and e.get("scratch_apply") for e in entries)
                 report["groups"][name] = {
