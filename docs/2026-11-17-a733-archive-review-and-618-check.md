@@ -73,3 +73,28 @@ cat /root/opi3w-m2-work/a733-upstream-check-v2/review.md
 ```
 
 **Interpretation:** If the first pinctrl entry passes under `adaptation`, that is not the unmodified patch applying cleanly. It means the rename-only meaning was reproduced for the older source. Review the next failed patch and its exact context before changing any functional driver code. The voltage follow-up is still **not approved for hardware**, even if the scratch patch applies.
+
+## 2026-11-17: fourth pinctrl patch conflict, actual 6.18 prerequisite found
+
+From operator `a733-upstream-check-v3/pinctrl-patch4-6.18-context.txt`, patches 1/7 (semantic rename), 2/7 and 3/7 pass, and 4/7 conflicts in `pinctrl-sunxi.c` and `pinctrl-sunxi.h`. Reading the actual upstream patch 4/7 in the archived mbox identifies a **missing full-flags field** in pinned Linux 6.18, not merely a shifted line number:
+
+- 6.18 has `pctl->variant = flags & SUNXI_PINCTRL_VARIANT_MASK;` and `unsigned long variant;` in `struct sunxi_pinctrl`.
+- Newer pinctrl uses `pctl->flags` in the PortK quirk (already added by patch 2/7), and patch 4/7 uses the full flags to select `SUNXI_PINCTRL_NCAT3_REG_LAYOUT`. The original upstream patch 4/7 expects `pctl->flags = flags;` and `unsigned long flags;` to already exist.
+- The A733 MMIO layout sets `bank_mem_size=0x80`, `bank_offset=0x80`, drive registers offset `0x20`, pull offset `0x30`, IRQ offset `0x40` inside each bank, and POW mode offset `0x040`. This is functional hardware register mapping, not cosmetic patch context.
+- An upstream prerequisite that introduced full flags storage is absent in the pinned 6.18 source; retain the existing `variant` because older upstream code may use it.
+
+The checker now offers `--adapt-pinctrl-layout` to add **only** the full-flags field and initialization in scratch before testing unmodified patch 4/7. It requires exact 6.18 source anchors, rejects partial/mixed states, and touches neither original source nor runtime hardware. **This bridge has not yet been tested on the operator's WSL source or compiled.** A patch 4 success would only establish text-level applicability, not functionality.
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 scripts/check-a733-upstream-backport.py \
+  --archive /root/opi3w-m2-work/a733-upstream-patches-v1.tar.gz \
+  --source /root/opi3w-hybrid-sources-0.1.0/linux \
+  --output /root/opi3w-m2-work/a733-upstream-check-v4 \
+  --adapt-pinctrl-rename \
+  --adapt-pinctrl-layout
+cat /root/opi3w-m2-work/a733-upstream-check-v4/review.md
+```
+
+**Safety:** A733 voltage AUTO follow-up may write `0x55555555` to GPIO POW_MOD_SEL; being source-applicable does not authorize hardware boot with that patch. Keep it disabled for the first hardware variant until PF bank power behavior is established.
