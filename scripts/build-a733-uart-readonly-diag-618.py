@@ -60,6 +60,12 @@ def main():
         cmd("cp", "-a", "--reflink=auto", src, tree)
         target = tree / "drivers/tty/serial/8250/8250_dw.c"
         s = target.read_text()
+        # __clk_get_name() is declared in the common clock provider header.
+        if "#include <linux/clk-provider.h>" not in s:
+            if "#include <linux/clk.h>" not in s:
+                raise RuntimeError("Expected Linux clock header missing")
+            s = once(s, "#include <linux/clk.h>",
+                     "#include <linux/clk.h>\n#include <linux/clk-provider.h>")
         # Enable only when exact existing source structure is present.
         anchor = "static int dw8250_probe(struct platform_device *pdev)\n{"
         addition = r'''
