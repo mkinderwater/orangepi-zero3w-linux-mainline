@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # A733 DTS prerequisites, source-only inventory, no image or hardware changes.
 set -euo pipefail
-K="\${1:-/root/opi3w-m2-work/a733-clean-with-axp318w-v1/linux}"
-OUT="\${2:-/root/opi3w-m2-work/a733-dts-prerequisites-v1.txt}"
+K="${1:-/root/opi3w-m2-work/a733-clean-with-axp318w-v1/linux}"
+OUT="${2:-/root/opi3w-m2-work/a733-dts-prerequisites-v1.txt}"
 [[ -f "$K/Makefile" ]] || { echo "No kernel Makefile: $K" >&2; exit 2; }
 [[ ! -e "$OUT" ]] || { echo "Output exists: $OUT" >&2; exit 2; }
 mkdir -p "$(dirname "$OUT")"
