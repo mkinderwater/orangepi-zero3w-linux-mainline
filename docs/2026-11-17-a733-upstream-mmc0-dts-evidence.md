@@ -42,3 +42,31 @@ The vendor CCU clock inputs are named `hosc`, `losc`, `iosc`. Verify actual upst
 5. PMIC silicon identity and regulator parent behavior. **No automatic alias or rail programming.**
 
 Do not generate a boot claim until DTB compile/schema review, real board serial and SD enumeration validation.
+
+## 2026-11-17: console and second-PMIC hazard uncovered
+
+Latest vendor-board inspection shows that although `&uart0 { status = "okay"; }` references `uart0_pins_active`, its node literally declares `pins = "", "";`. **Do not port this pinctrl assignment or assume UART0 at 0x02500000 is the serial debug console.** Explicit vendor UART2 pin assignment is PB0/PB1 and UART1 PG6..PG9, but neither proves the hardware port used by the previously successful hybrid UART PID1 test. Verify chosen/stdout-path, bootargs, U-Boot logs and pin routing first. Console-only DTS should follow verified evidence, not a guessed UART number.
+
+The board's secondary `pmu1: pmu@34` is vendor AXP515 under `&s_twi0` (source section around 1940), distinct from the primary AXP8191 `pmu0: pmu@36`. The uploaded excerpt starts near the end of one preceding TWI node before `&s_twi0`; **it does not establish the enclosing I2C node for PMIC 0x36**. Audit the actual enclosing label and controller address before generating AXP318W DTS. No primary PMIC compatibility alias or live regulator enable is authorized.
+
+The upstream A733 CCU driver's probe includes PLL enable and audio PLL register writes; a full kernel link does not prove these are safe on this board. Follow with a UART-only DTB and reversible hardware boot test, then MMC0 3.3V-only with UHS disabled. Do not copy A523 `allwinner,pinmux = <2>` without verifying A733 PF mux encoding.
+
+### Next source-only extraction
+
+```bash
+V=/root/opi3w-hybrid-build-0.2.7/board
+K=/root/opi3w-m2-work/a733-clean-with-axp318w-v1/linux
+
+echo '=== BOOT SERIAL ROUTING ==='
+grep -RnsE 'stdout-path|console=tty|earlycon|serial[0-9] =|uart[0-9]_pins_active|bootargs' \
+  "$V" --include='*.dts' --include='*.dtsi' | head -110
+echo '=== UART MUX DEFINITIONS ==='
+sed -n '530,620p' "$V/zero3w-vendor-board.dtsi"
+echo '=== PMIC I2C BUS LABELS ==='
+grep -nE '^&([rs]_)?twi[0-9]+[[:space:]]*\{' "$V/zero3w-vendor-board.dtsi"
+sed -n '2000,2110p' "$V/zero3w-vendor-board.dtsi"
+echo '=== R-DOMAIN I2C CONTROLLERS ==='
+grep -nE 's_twi[0-9]*:|r_twi[0-9]*:|twi@708[0-9a-f]+' "$V/sun60iw2p1.dtsi"
+```
+
+Static evidence only, no changes to existing kernel/image or power rails.
