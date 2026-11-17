@@ -50,6 +50,12 @@ def main():
         obj = a.output / (track + "-obj")
         run(["cp", "-a", "--reflink=auto", a.source, tree])
         if track == "ccu":
+            # Upstream A733 v7 depends on a feature-aware MUX/GATE macro
+            # added after v6.18. Keep the compatibility patch isolated.
+            compat = (Path(__file__).resolve().parents[1] / "patches/linux-6.18" /
+                      "0004-clk-sunxi-mux-gate-feat-macro.patch")
+            run(["git", "-C", tree, "apply", "--check", compat])
+            run(["git", "-C", tree, "apply", compat])
             patches = [a.review / ("ccu-v7-%02d.patch" % n) for n in range(1, 9)]
         else:
             # First semantic rename and full flags bridge are in the review
