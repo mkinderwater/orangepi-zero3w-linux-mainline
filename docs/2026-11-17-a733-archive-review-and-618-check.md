@@ -98,3 +98,25 @@ cat /root/opi3w-m2-work/a733-upstream-check-v4/review.md
 ```
 
 **Safety:** A733 voltage AUTO follow-up may write `0x55555555` to GPIO POW_MOD_SEL; being source-applicable does not authorize hardware boot with that patch. Keep it disabled for the first hardware variant until PF bank power behavior is established.
+
+## 2026-11-17: both base series now pass, PF6 isolated from untested voltage patch
+
+The operator's `a733-upstream-check-v6` report confirms **CCU v7 8/8 PASS** and **pinctrl base 7/7 PASS** using the strictly scoped `--adapt-pinctrl-rename` and `--adapt-pinctrl-layout` 6.18 scratch bridges. These results only establish source-level applicability, not successful compilation, GPIO register safety or physical Zero 3W boot.
+
+The voltage-mode v3 follow-up still **CONFLICTS** in `pinctrl-sunxi.c` and `pinctrl-sunxi.h`. It writes automatic voltage selection and is not validated for Zero 3W PF bank power switching; do not force, auto-merge or include it in any initial boot experiment.
+
+The checker previously ran voltage before PF6, causing the voltage conflict to block an unrelated IRQ-mux fix. This was a workflow error. From commit `a9b596d`, the checker now tests pinctrl base, then **PF6**, with voltage mode **skipped by default**. An explicit `--include-voltage` only permits an additional **source-level scratch applicability** check; it never authorizes hardware deployment.
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 scripts/check-a733-upstream-backport.py \
+ --archive /root/opi3w-m2-work/a733-upstream-patches-v1.tar.gz \
+ --source /root/opi3w-hybrid-sources-0.1.0/linux \
+ --output /root/opi3w-m2-work/a733-upstream-check-v7 \
+ --adapt-pinctrl-rename --adapt-pinctrl-layout
+
+cat /root/opi3w-m2-work/a733-upstream-check-v7/review.md
+```
+
+Any PF6 PASS still requires a separate hardware/board-DTS applicability review, including the Zero 3W's actual card-detect pin, and is not proof of a working MMC controller. The base CCU and base pinctrl are ready for **isolated compilation experiments** only.
