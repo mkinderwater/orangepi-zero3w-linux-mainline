@@ -15,7 +15,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-GROUPS = ("ccu-v7", "pinctrl-base", "pinctrl-voltage-v3", "pinctrl-pf6")
+GROUPS = ("ccu-v7", "pinctrl-base", "pinctrl-pf6", "pinctrl-voltage-v3")
 EXPECTED = {"ccu-v7": 8, "pinctrl-base": 7,
             "pinctrl-pf6": 1, "pinctrl-voltage-v3": 1}
 DIFF = re.compile(r"^diff --git a/(\S+) b/(\S+)$", re.M)
@@ -243,6 +243,8 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--adapt-pinctrl-layout", action="store_true",
                    help="Before 4/7 add upstream full flags state in scratch for 6.18")
+    p.add_argument("--include-voltage", action="store_true",
+                   help="Source-only check of unproven voltage-mode patch; never hardware authorization")
     p.add_argument("--adapt-pinctrl-rename", action="store_true",
                    help="Apply only rename-only 1/7 semantics to scratch files for 6.18")
     args = p.parse_args()
@@ -264,11 +266,12 @@ def main():
                   "archive_sha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
                   "groups": {}, "notice": "STATIC ONLY: no build, hardware or voltage tests",
                   "adapt_pinctrl_rename": args.adapt_pinctrl_rename,
-                  "adapt_pinctrl_layout": args.adapt_pinctrl_layout}
+                  "adapt_pinctrl_layout": args.adapt_pinctrl_layout,
+                  "include_voltage": args.include_voltage}
         # All patch groups share a base tree only within pinctrl branch.
         for stage in ("ccu-v7", "pinctrl"):
             names = ("ccu-v7",) if stage == "ccu-v7" else (
-                "pinctrl-base", "pinctrl-voltage-v3", "pinctrl-pf6")
+                "pinctrl-base", "pinctrl-pf6", "pinctrl-voltage-v3")
             work = t / (stage + "-scratch")
             work.mkdir()
             paths = set()
@@ -283,6 +286,9 @@ def main():
                     shutil.copy2(original, target)
             blocked = False
             for name in names:
+                if name == "pinctrl-voltage-v3" and not args.include_voltage:
+                    report["groups"][name] = {"status": "SKIPPED_UNTESTED_VOLTAGE_SAFETY"}
+                    continue
                 if blocked:
                     report["groups"][name] = {"status": "BLOCKED_BY_PRIOR_SERIES"}
                     continue
