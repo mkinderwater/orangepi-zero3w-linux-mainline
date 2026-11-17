@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+/dts-v1/;
+
+#include "sun60i-a733.dtsi"
+
+/ {
+	model = "Xunlong Orange Pi Zero 3W (RAM-B split BL31 exclusion)";
+	compatible = "xunlong,orangepi-zero3w", "allwinner,sun60i-a733";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/*
+	 * Boot0/U-Boot detected 1 GiB total DRAM.
+	 * Exclude BL31 at 0x48000000..0x48ffffff from usable RAM.
+	 * 128 MiB below BL31 plus 880 MiB above = 1008 MiB.
+	 */
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x0 0x40000000 0x0 0x08000000>,
+		      <0x0 0x49000000 0x0 0x37000000>;
+	};
+};
+
+/* A733 CCU needs a board-provided 24 MHz crystal frequency. */
+&osc {
+	clock-frequency = <24000000>;
+};
+
+/*
+ * Existing hybrid UART output used UART0 at 0x02500000.
+ * Its vendor pinctrl groups are empty; deliberately do not copy them.
+ * No PB9/PB10 mux is asserted: the vendor board uses those for TWI8.
+ * Boot firmware may have established the pin state, not Linux.
+ */
+&uart0 {
+	status = "okay";
+};
+
+/*
+ * MMC0, R-I2C0 and both PMICs remain disabled by the SoC DTS.
+ * No 1.8V transition, regulator enable/disable, or SD-root claim.
+ * RAM-B supplies two verified RAM spans; initrd placement remains firmware-managed.
+ */
