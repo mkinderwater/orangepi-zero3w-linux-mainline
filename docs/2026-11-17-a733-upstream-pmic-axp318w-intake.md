@@ -149,3 +149,24 @@ The upstream AXP318W v8 `SWOUT2` descriptor has a `NULL` supply name, unlike ven
 The upstream AXP318W MFD source shown in the latest operator output has regmap/IRQ implementation and DT variant identification, but the truncated grep **does not establish hardware ID matching** with the vendor AXP8191. Vendor header defines `AXP8191_CHIP_ID=0x0e`, a *register address*, not a measured chip ID. The AXP318W DT `compatible` must not be substituted in the board DTS until silicon identity/probe behavior is resolved.
 
 Next read-only inspection should extract the actual I2C probe path and any ID register reads, plus the respective upstream `SWOUT2` parent-supply configuration.
+
+## 2026-11-17: PMIC chip detection search and combined offline link
+
+Operator's focused inspection of `drivers/mfd/axp20x-i2c.c` found `x-powers,axp318w` selected via DT match `AXP318_ID`. A grep for `regmap_read|chip_id|chipid` in upstream `axp20x.c` did not show a probe-time silicon-ID verification. **A DT-compatible string is not proof of real AXP8191 silicon identity.** The vendor `axp2101.c` search for `axp8191.*probe` likewise returned no actual verification routine. Keep identity unresolved and do not add an alias.
+
+The vendor Zero 3W `reg_dc1sw2` declares `swin-supply = <&reg_dcdc1>` and `regulator-always-on`. AXP318W v8 `SWOUT2` uses `NULL` parent name and matches vendor switch register `0x11`, bit 4. Its parent relationship is **not modeled by the descriptor**, which requires review before board DTS electrical testing.
+
+New script `scripts/build-a733-clean-with-axp318w.py` allows a safe **offline integrated Image link** in a third source tree using the verified CCU+pinctrl combined source and PMIC-only source. It enforces same pinned upstream HEAD, confines PMIC changes to the six files from the verified five-patch series, prevents PMIC/source overlap and re-resolves config for all drivers. It does not bind AXP8191, add a DTS, or flash a board.
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 scripts/build-a733-clean-with-axp318w.py \
+ --combined-tree /root/opi3w-m2-work/a733-combined-clean-build-v1/linux \
+ --pmic-tree /root/opi3w-m2-work/axp318w-clean-compile-v1/linux \
+ --config /root/opi3w-clean-618-config-v3/.config \
+ --output /root/opi3w-m2-work/a733-clean-with-axp318w-v1 \
+ --jobs 4
+```
+
+The output is still a **source/build artifact only**. PMIC compatibility remains blocked on chip ID and rail-parent correctness. MMC0 root boot remains blocked on canonical upstream DTS, clocks/resets, safe voltage selection, PMIC initialization and hardware validation.
