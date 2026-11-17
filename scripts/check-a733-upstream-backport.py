@@ -15,7 +15,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-GROUPS = ("ccu-v7", "pinctrl-base", "pinctrl-pf6", "pinctrl-voltage-v3")
+GROUPS = ("ccu-v7", "pinctrl-base", "pinctrl-voltage-v3", "pinctrl-pf6")
 EXPECTED = {"ccu-v7": 8, "pinctrl-base": 7,
             "pinctrl-pf6": 1, "pinctrl-voltage-v3": 1}
 DIFF = re.compile(r"^diff --git a/(\S+) b/(\S+)$", re.M)
@@ -109,7 +109,7 @@ def main():
         # All patch groups share a base tree only within pinctrl branch.
         for stage in ("ccu-v7", "pinctrl"):
             names = ("ccu-v7",) if stage == "ccu-v7" else (
-                "pinctrl-base", "pinctrl-pf6", "pinctrl-voltage-v3")
+                "pinctrl-base", "pinctrl-voltage-v3", "pinctrl-pf6")
             work = t / (stage + "-scratch")
             work.mkdir()
             paths = set()
