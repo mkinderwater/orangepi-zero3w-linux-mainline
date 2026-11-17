@@ -97,26 +97,32 @@ def rename_first_pinctrl_patch(work):
 
 
 def bridge_pinctrl_618_flags(work):
-    """Backport newer pinctrl full flags storage, in scratch only.
+    """Backport full pinctrl flags storage to 6.18 in scratch only.
 
-    The 6.18 core stores only a masked variant. Patch 2/7 already needs
-    SUNXI_PINCTRL_ELEVEN_BANKS from the full flags; patch 4/7 expects
-    that upstream prerequisite to be present. Do not replace variant.
+    Scope the insertion to struct sunxi_pinctrl, never to another struct
+    that happens to declare its own 'variant' field.
     """
     source = work / "drivers/pinctrl/sunxi/pinctrl-sunxi.c"
     header = work / "drivers/pinctrl/sunxi/pinctrl-sunxi.h"
     src = source.read_text()
     hdr = header.read_text()
     old_src = "\tpctl->variant = flags & SUNXI_PINCTRL_VARIANT_MASK;"
+    if src.count(old_src) != 1 or "\tpctl->flags = flags;" in src:
+        raise ValueError("6.18 pinctrl assignment anchor changed: manual review")
+    begin = hdr.find("struct sunxi_pinctrl {")
+    if begin < 0 or hdr.count("struct sunxi_pinctrl {") != 1:
+        raise ValueError("Cannot uniquely locate struct sunxi_pinctrl")
+    end = hdr.find("\n};", begin)
+    if end < 0:
+        raise ValueError("Cannot locate end of struct sunxi_pinctrl")
+    struct = hdr[begin:end]
     old_hdr = "\tunsigned long\t\t\tvariant;"
-    if src.count(old_src) != 1 or hdr.count(old_hdr) != 1:
-        raise ValueError("6.18 flags field anchor changed: manual review required")
-    if "\tpctl->flags = flags;" in src or "unsigned long\t\t\tflags;" in hdr:
-        raise ValueError("flags bridge already exists or partially applied")
+    if struct.count(old_hdr) != 1 or "unsigned long\t\t\tflags;" in struct:
+        raise ValueError("6.18 pinctrl struct field anchor changed: manual review")
+    updated = struct.replace(old_hdr, old_hdr + "\n\tunsigned long\t\t\tflags;")
+    header.write_text(hdr[:begin] + updated + hdr[end:])
     source.write_text(src.replace(old_src, old_src + "\n\tpctl->flags = flags;"))
-    header.write_text(hdr.replace(old_hdr, old_hdr + "\n\tunsigned long\t\t\tflags;"))
-    return "6.18 variant retained; full flags field and initialization added in SCRATCH"
-
+    return "6.18 variant retained; full flags field and assignment added in SCRATCH"
 
 def validate_group(name, parsed, source, work, out, adapt_rename=False, adapt_layout=False):
     results = []
