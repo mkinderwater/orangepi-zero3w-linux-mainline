@@ -70,3 +70,15 @@ grep -nE 's_twi[0-9]*:|r_twi[0-9]*:|twi@708[0-9a-f]+' "$V/sun60iw2p1.dtsi"
 ```
 
 Static evidence only, no changes to existing kernel/image or power rails.
+
+## Confirmed boot routing and primary/secondary PMIC bus (operator output)
+
+The existing hybrid board DTS `sun60i-a733-orangepi-zero3w.dts` includes:
+- `stdout-path = "serial0:115200n8";`
+- `bootargs = "earlycon=uart0,0x02500000 console=ttyS0,115200n8 loglevel=7";`
+
+This demonstrates the **selected** hybrid Linux console is UART0 at 0x02500000. It does **not prove pin routing** on the UART header because the imported vendor `uart0_pins_active` node defines `pins = "", "";`. The previous hybrid UART/PID1 evidence establishes observed early serial activity, but not which pinctrl configuration was applied. Review the hybrid top-level DTS, its pinctrl override and compiled DTB `/chosen`, `/aliases` and `serial@2500000` before generating the replacement.
+
+The vendor board `&s_twi0 { ... }` explicitly encloses both `pmu1: pmu@34` (AXP515) and `pmu0: pmu@36` (AXP8191). The SoC source declares `s_twi0: twi@7083000`, `s_twi1: twi@7084000`, `s_twi2: twi@7085000`. **The primary and secondary PMIC share the R-domain I2C0 controller at 0x07083000**, not main-domain TWI0 at 0x02510000. Use upstream R-CCU clock/reset naming after confirming the controller binding, pinmux and IRQ.
+
+Do not enable or alias the AXP8191 in a DTB yet; chip identity remains unverified. Do not copy the vendor `allwinner,sunxi-twi-v101` property into a new upstream DTS without confirming a supported compatible. The earlier assumption that this would be main-domain I2C0 was incorrect.
