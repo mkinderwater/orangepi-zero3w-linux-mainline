@@ -66,3 +66,20 @@ python3 scripts/check-axp318w-upstream-backport.py \
 ```
 
 **Required gates after applicability:** independently compare AXP8191 versus AXP318W PMIC silicon ID, CLDO5 voltage and enable registers, DCDC1/outs switch register map and exact `dc1sw2` identity. Verify whether the Zero 3W needs AXP515 for any boot-critical rail. Only then construct a separate upstream PMIC configuration and new board DTS. No live voltage or 1.8V MMC tests until that evidence is complete.
+
+## Operator WSL applicability result, November 17
+
+All five upstream AXP318W v8 patches passed sequential scratch `git apply --check` and application against the pinned clean Linux source. They cover constified MFD cells, corrected I2C instantiation, DT bindings, AXP318W MFD and regulator data. This establishes **source applicability only**, not compile success, device identity or electrical compatibility.
+
+Next script: `scripts/build-axp318w-clean-driver.py` constructs a new Linux source copy and separate build output from the pinned clean config, applies only those five reviewed patches, enables `I2C`, `MFD_AXP20X_I2C`, `REGULATOR_AXP20X`, resolves dependencies with `olddefconfig`, and builds `drivers/mfd/` and `drivers/regulator/` independently. It verifies `axp20x.o`, `axp20x-i2c.o` and `axp20x-regulator.o`; no boot image or PMIC writes. AXP8191 vs AXP318W and DC1SW2 vs SWOUT2 remain explicitly unverified.
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 scripts/build-axp318w-clean-driver.py \
+ --source /root/opi3w-hybrid-sources-0.1.0/linux \
+ --config /root/opi3w-clean-618-config-v3/.config \
+ --review /root/opi3w-m2-work/axp318w-upstream-check-v1 \
+ --output /root/opi3w-m2-work/axp318w-clean-compile-v1 \
+ --jobs 4
+```
