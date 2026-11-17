@@ -139,3 +139,13 @@ The original vendor `AXP_DESC_SW(... "dc1sw2", "swin", ...)` declares upstream s
 These matches establish register-operation equivalence for the two relevant controls, **not** full chip identity or safe 1.8 V transition. The vendor header defines `AXP8191_IC_TYPE=0x03`, `AXP8191_CHIP_ID=0x0e`, `AXP8191_CHIP_VER=0x0f`; those are register locations, not a verified live chip ID. Upstream MFD matches `x-powers,axp318w`, not the vendor `x-powers,axp8191`. Do **not** add a compatible alias until the ID and init/IRQ/regmap behavior agree.
 
 **Next:** inspect vendor MFD `axp2101.c` and header around chip ID, and upstream `axp20x.c`, `axp20x-i2c.c`, `axp20x.h` for actual chip detection, read/write ranges and regulator output control. Use read-only source inspection first. No device access, PMIC writes, boot image or voltage changes.
+
+## Vendor board supply topology verified from operator output (2026-11-17)
+
+The vendor board DTS `zero3w-vendor-board.dtsi` explicitly declares both `reg_dc1sw1` and `reg_dc1sw2` with `swin-supply = <&reg_dcdc1>;`. `reg_dc1sw1` has `regulator-boot-on` and `regulator-always-on`; `reg_dc1sw2` is **regulator-always-on**, without a `regulator-boot-on` property in the displayed fragment. Do not silently add the latter. MMC0 `vmmc-supply` resolves to DC1SW2 in both vendor and hybrid DTBs.
+
+The upstream AXP318W v8 `SWOUT2` descriptor has a `NULL` supply name, unlike vendor `DC1SW2` descriptor's `"swin"`. Preserve the physical DCDC1 parent relationship in an upstream-compatible regulator supply topology, but check how this upstream descriptor handles the parent before treating the DTB relation as effective. Never change the rail merely to force MMC0 probe.
+
+The upstream AXP318W MFD source shown in the latest operator output has regmap/IRQ implementation and DT variant identification, but the truncated grep **does not establish hardware ID matching** with the vendor AXP8191. Vendor header defines `AXP8191_CHIP_ID=0x0e`, a *register address*, not a measured chip ID. The AXP318W DT `compatible` must not be substituted in the board DTS until silicon identity/probe behavior is resolved.
+
+Next read-only inspection should extract the actual I2C probe path and any ID register reads, plus the respective upstream `SWOUT2` parent-supply configuration.
