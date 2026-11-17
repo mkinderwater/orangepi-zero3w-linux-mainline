@@ -96,7 +96,29 @@ def rename_first_pinctrl_patch(work):
     return {str(f.relative_to(work)): body.count(new) for f, body in replacements.items()}
 
 
-def validate_group(name, parsed, source, work, out, adapt_rename=False):
+def bridge_pinctrl_618_flags(work):
+    """Backport newer pinctrl full flags storage, in scratch only.
+
+    The 6.18 core stores only a masked variant. Patch 2/7 already needs
+    SUNXI_PINCTRL_ELEVEN_BANKS from the full flags; patch 4/7 expects
+    that upstream prerequisite to be present. Do not replace variant.
+    """
+    source = work / "drivers/pinctrl/sunxi/pinctrl-sunxi.c"
+    header = work / "drivers/pinctrl/sunxi/pinctrl-sunxi.h"
+    src = source.read_text()
+    hdr = header.read_text()
+    old_src = "\tpctl->variant = flags & SUNXI_PINCTRL_VARIANT_MASK;"
+    old_hdr = "\tunsigned long\t\t\tvariant;"
+    if src.count(old_src) != 1 or hdr.count(old_hdr) != 1:
+        raise ValueError("6.18 flags field anchor changed: manual review required")
+    if "\tpctl->flags = flags;" in src or "unsigned long\t\t\tflags;" in hdr:
+        raise ValueError("flags bridge already exists or partially applied")
+    source.write_text(src.replace(old_src, old_src + "\n\tpctl->flags = flags;"))
+    header.write_text(hdr.replace(old_hdr, old_hdr + "\n\tunsigned long\t\t\tflags;"))
+    return "6.18 variant retained; full flags field and initialization added in SCRATCH"
+
+
+def validate_group(name, parsed, source, work, out, adapt_rename=False, adapt_layout=False):
     results = []
     for i, patch in enumerate(parsed, 1):
         file = out / (name + "-%02d.patch" % i)
@@ -115,9 +137,20 @@ def validate_group(name, parsed, source, work, out, adapt_rename=False):
                             "adaptation": "6.18 semantic flag rename only; not a clean patch apply",
                             "renamed_file_counts": changed, "diagnostic": ""})
             continue
+        bridge = None
+        if adapt_layout and name == "pinctrl-base" and i == 4:
+            try:
+                bridge = bridge_pinctrl_618_flags(work)
+            except (OSError, ValueError) as err:
+                results.append({"order": i, "subject": patch["subject"],
+                                "message_id": patch["mid"], "paths": patch["files"],
+                                "check": False, "diagnostic": str(err)})
+                break
         rc, msg = command("git", "apply", "--check", str(file), cwd=work)
         record = {"order": i, "subject": patch["subject"], "message_id": patch["mid"],
                   "paths": patch["files"], "check": rc == 0, "diagnostic": msg}
+        if bridge:
+            record["adaptation"] = bridge
         results.append(record)
         if rc != 0:
             break
@@ -173,6 +206,8 @@ def main():
     p.add_argument("--archive", type=Path, required=True)
     p.add_argument("--source", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--adapt-pinctrl-layout", action="store_true",
+                   help="Before 4/7 add upstream full flags state in scratch for 6.18")
     p.add_argument("--adapt-pinctrl-rename", action="store_true",
                    help="Apply only rename-only 1/7 semantics to scratch files for 6.18")
     args = p.parse_args()
@@ -193,7 +228,8 @@ def main():
         report = {"source": str(args.source.resolve()),
                   "archive_sha256": hashlib.sha256(args.archive.read_bytes()).hexdigest(),
                   "groups": {}, "notice": "STATIC ONLY: no build, hardware or voltage tests",
-                  "adapt_pinctrl_rename": args.adapt_pinctrl_rename}
+                  "adapt_pinctrl_rename": args.adapt_pinctrl_rename,
+                  "adapt_pinctrl_layout": args.adapt_pinctrl_layout}
         # All patch groups share a base tree only within pinctrl branch.
         for stage in ("ccu-v7", "pinctrl"):
             names = ("ccu-v7",) if stage == "ccu-v7" else (
@@ -216,7 +252,8 @@ def main():
                     report["groups"][name] = {"status": "BLOCKED_BY_PRIOR_SERIES"}
                     continue
                 entries = validate_group(name, groups[name], args.source, work, args.output,
-                                         adapt_rename=args.adapt_pinctrl_rename)
+                                         adapt_rename=args.adapt_pinctrl_rename,
+                                         adapt_layout=args.adapt_pinctrl_layout)
                 if name == "pinctrl-base" and len(entries) >= 4 and not entries[3]["check"]:
                     path = conflict_context(work, groups[name][3], args.output)
                     entries[3]["review_context_file"] = path
