@@ -68,3 +68,22 @@ python3 scripts/compile-zero3w-uart-only-dtb.py \
 ```
 
 The checker uses `cpp`, `dtc`, decodes the produced DTB, and checks the serial alias, console configuration, disabled MMC0 and disabled PMIC bus. It does not edit original kernel sources or boot media. A pass remains **static only**; do not boot or flash the new DTB without reviewing firmware memory and chosen/initrd overlays plus the exact UART pin function and earlycon UART driver behavior. Note also that upstream v3 UART integration may need a later `8250_dw` runtime patch beyond merely compiling `CONFIG_SERIAL_8250_DW=y`.
+
+## 2026-11-17: first Zero 3W UART-only board DTB compiled, policy 8/8
+
+Operator ran `scripts/compile-zero3w-uart-only-dtb.py` with the v3 A733 SoC source tree and the separately authored `dts/sun60i-a733-orangepi-zero3w-uart-only.dts`. The actual output:
+
+```text
+STATUS: DTC_PASS_UART_ONLY_NOT_BOOT_VALIDATED
+CHECKS: {'model': True, 'console_alias': True, 'console_stdout': True,
+ 'no_axp318w_alias': True, 'no_bootargs_override': True,
+ 'no_fixed_memory_size': True, 'mmc0_disabled': True, 'r_i2c0_disabled': True}
+DTB: /root/opi3w-m2-work/zero3w-uart-only-dtb-check-v1/sun60i-a733-orangepi-zero3w-uart-only.dtb
+SHA256: b81ae21342c8748bc65a40d38640a2e5c708cd839457e91265cff4d013a851a2
+```
+
+All eight static checks passed, no `dtc` warning was shown by the wrapper. The paired **separately linked clean UART kernel** is `/root/opi3w-m2-work/a733-clean-uart-gate-v1/obj/arch/arm64/boot/Image`, SHA256 `a2e34a97113b9fff7c64112d46e6f9e131bf2ebe13d9cb1734b4fea49803e311`, 4,562,952 bytes.
+
+**Important:** this board DTS deliberately omits a memory node and bootargs. Neither the compiler nor the eight policy checks proves that the frozen U-Boot/Boot0 chain inserts a valid memory node, initrd start/end, chosen stdout, console argument or any runtime fixup into the DTB. Neither the existing vendor/hybrid FDT memory value (512 MiB) nor an assumed board RAM capacity may be copied as a substitute for observed handoff. The kernel may fail before UART output if those requirements are wrong. Also verify generic `8250_dw` earlycon/clock handling against the published upstream A733 UART runtime dependencies; compiled object alone is not hardware evidence.
+
+**Next acceptance gate: read-only audit of actual existing boot scripts, U-Boot `booti` arguments, FDT environment/fixup commands, initrd source/size and UART earlycon syntax.** Do not change or flash the known hybrid boot medium, nor claim the UART-only DTB is bootable.
