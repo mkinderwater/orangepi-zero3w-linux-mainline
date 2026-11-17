@@ -1,0 +1,39 @@
+From: Orange Pi Zero 3W Linux 6.18 integration
+Subject: [PATCH] mmc: sunxi-bsp: remove removed MMC_CAP2_HC_ERASE_SZ ABI flag
+
+Linux 6.18 uses BIT(9) in mmc_host::caps2 for MMC_CAP2_SD_UHS2.
+The imported Allwinner 6.6 BSP redefines BIT(9) as the removed
+MMC_CAP2_HC_ERASE_SZ flag. The active sdmmc@4022000 device-tree node
+has the legacy mmc-high-capacity-erase-size property, so its parse
+advertises UHS-II although sunxi_mmc_ops has no uhs2_control callback.
+
+Card erase geometry must be derived from MMC core/card initialization,
+not an alias of an unrelated capability bit. Stop setting the obsolete
+flag and remove its conflicting definition.
+
+Do not change the DTB, real UHS-I capability flags, regulator
+sequences, pinctrl, other caps, U-Boot or initramfs in this patch.
+Hardware validation and an audit of remaining legacy vendor CAP2 flags
+are required before claiming a stable boot.
+
+diff --git a/bsp/drivers/mmc/sunxi-mmc.c b/bsp/drivers/mmc/sunxi-mmc.c
+--- a/bsp/drivers/mmc/sunxi-mmc.c
++++ b/bsp/drivers/mmc/sunxi-mmc.c
+@@ -4108,8 +4108,6 @@ static int sunxi_mmc_extra_of_parse(struct mmc_host *mmc)
+ 
+ 	np = mmc->parent->of_node;
+ 
+-	if (of_property_read_bool(np, "mmc-high-capacity-erase-size"))
+-		mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;
+ 	if (sunxi_mmc_chk_hr1b_cap(host)
+ 			&& of_property_read_bool(np, "cap-wait-while-busy")) {
+diff --git a/bsp/drivers/mmc/sunxi-mmc.h b/bsp/drivers/mmc/sunxi-mmc.h
+--- a/bsp/drivers/mmc/sunxi-mmc.h
++++ b/bsp/drivers/mmc/sunxi-mmc.h
+@@ -643,7 +643,6 @@ struct mmc_gpio {
+ #define MMC_CAP2_PACKED_WR	(1 << 13)	/* Allow packed write */
+ #define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
+ 						 MMC_CAP2_PACKED_WR)
+-#define MMC_CAP2_HC_ERASE_SZ	(1 << 9)	/* High-capacity erase size */
+ 
+ void sunxi_mmc_select_timing(struct mmc_host *mmc, int64_t value);
