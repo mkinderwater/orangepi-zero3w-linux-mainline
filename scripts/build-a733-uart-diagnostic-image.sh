@@ -41,7 +41,7 @@ EXPECTED="a2e34a97113b9fff7c64112d46e6f9e131bf2ebe13d9cb1734b4fea49803e311"
   echo "Upstream A733 v3 SoC DTS missing from source" >&2; exit 2;
 }
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BOARD="$ROOT/dts/sun60i-a733-orangepi-zero3w-ram512-diagnostic.dts"
+BOARD="$ROOT/dts/sun60i-a733-orangepi-zero3w-uart-only.dts"
 [[ -f "$BOARD" ]] || { echo "Board DTS missing: $BOARD" >&2; exit 2; }
 
 WORK="$(mktemp -d)"
@@ -56,13 +56,12 @@ DTS_DIR="$SRC/arch/arm64/boot/dts/allwinner"
 cpp -nostdinc -undef -D__DTS__ -I "$SRC/include" -I "$DTS_DIR" \
   -x assembler-with-cpp -o "$WORK/board.preprocessed.dts" "$BOARD"
 dtc -I dts -O dtb -o "$WORK/board.dtb" "$WORK/board.preprocessed.dts"
-# Mandatory checks of diagnostic RAM, secure carveout, and no enabled MMC0.
+# Verify firmware-managed memory, diagnostic console and no enabled MMC0.
 dtc -I dtb -O dts "$WORK/board.dtb" > "$WORK/decoded.dts" 2> "$WORK/decode.warnings"
 python3 - "$WORK/decoded.dts" <<'PY'
 import re,sys
 s=open(sys.argv[1]).read()
-for pat in (r'memory@40000000\s*\{[^}]*reg\s*=\s*<0x00 0x40000000 0x00 0x20000000>',
-            r'bl31@48000000\s*\{[^}]*no-map;', r'stdout-path\s*=\s*"serial0:115200n8"'):
+for pat in (r'stdout-path\s*=\s*"serial0:115200n8"',):
     if not re.search(pat,s,re.S):
         raise SystemExit("DTB policy failed: "+pat)
 for node in ("mmc@4020000", "i2c@7083000"):
@@ -70,6 +69,8 @@ for node in ("mmc@4020000", "i2c@7083000"):
     if not m or not re.search(r'status\s*=\s*"disabled";',m.group(1)):
         raise SystemExit("Unsafe enabled/missing node: "+node)
 if "x-powers,axp318w" in s: raise SystemExit("Unsafe PMIC binding")
+if re.search(r"memory(?:@[0-9a-f]+)?\s*\{", s):
+    raise SystemExit("Hardcoded memory node: firmware DRAM fixup must be used")
 print("DIAGNOSTIC_DTB_POLICY_PASS")
 PY
 echo "=== INPUT HASHES ==="
@@ -124,22 +125,21 @@ setenv kernel_addr_r 0x41000000
 setenv fdt_addr_r 0x44000000
 setenv ramdisk_addr_r 0x45000000
 setenv bootargs "earlycon=uart8250,mmio32,0x02500000 console=ttyS0,115200n8 keep_bootcon loglevel=8 ignore_loglevel initcall_debug rdinit=/init panic=-1"
-echo "A733 clean diagnostic: raw Linux Image + 512MiB-window DTB + tiny initrd"
-if load @@{devtype} @@{devnum} @@{kernel_addr_r} @@{prefix}mainline/Image; then
- if load @@{devtype} @@{devnum} @@{fdt_addr_r} @@{prefix}mainline/sun60i-a733-orangepi-zero3w.dtb; then
-  fdt addr @@{fdt_addr_r}
+echo "A733 clean diagnostic: raw Linux Image + firmware RAM FDT + tiny initrd"
+if load ${devtype} ${devnum} ${kernel_addr_r} ${prefix}mainline/Image; then
+ if load ${devtype} ${devnum} ${fdt_addr_r} ${prefix}mainline/sun60i-a733-orangepi-zero3w.dtb; then
+  fdt addr ${fdt_addr_r}
   fdt resize 65536
-  if load @@{devtype} @@{devnum} @@{ramdisk_addr_r} @@{prefix}mainline/uart-diagnostic-initrd.gz; then
+  if load ${devtype} ${devnum} ${ramdisk_addr_r} ${prefix}mainline/uart-diagnostic-initrd.gz; then
    echo "A733 diagnostic: entering booti"
-   booti @@{kernel_addr_r} @@{ramdisk_addr_r}:@@{filesize} @@{fdt_addr_r}
+   booti ${kernel_addr_r} ${ramdisk_addr_r}:${filesize} ${fdt_addr_r}
   fi
  fi
 fi
 echo "A733 diagnostic failed/returned; no fallback"
 while true; do sleep 5; done
 UBOOT
-sed -i 's/@@{/@@DOLLAR@@{/g' "$MNT/mainline/stage2.cmd"
-sed -i 's/@@DOLLAR@@/\$/g' "$MNT/mainline/stage2.cmd"
+
 mkimage -A arm -T script -C none -n "A733 UART diagnostic" \
   -d "$MNT/mainline/stage2.cmd" "$MNT/mainline/stage2.scr" >/dev/null
 cmp "$KERNEL" "$MNT/mainline/Image"
@@ -151,5 +151,5 @@ LOOP=""
 echo "UART_DIAGNOSTIC_IMAGE_BUILT: $OUTPUT"
 stat -c 'IMAGE_BYTES=%s' "$OUTPUT"
 sha256sum "$OUTPUT"
-echo "NO_HDMI_CLAIM: no validated A733 DRM/HDMI pipeline in this kernel"
-echo "NO_HARDWARE_BOOT_CLAIM: test on a separate SD card"
+echo "HDMI: firmware display state retained; Linux HDMI takeover NOT implemented"
+echo "FIRMWARE_RAM: relies on frozen U-Boot FDT fixup; not prevalidated"\necho "NO_HARDWARE_BOOT_CLAIM: test on a separate SD card"
