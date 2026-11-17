@@ -67,3 +67,29 @@ fdtget -t x "$DTB" /soc@3000000/gpu@1800000 gpu-supply
 ```
 
 **Do not merge a GPU clock fix with the MMC CAP2 repair or PF voltage patch.** These are separate sources of evidence and separate hardware acceptance gates.
+
+## 2026-11-17 follow-up: OPP binding present, no GPU `clk_rate` reader found in limited search
+
+The operator searched the actual imported BSP drivers for `of_property_read.*clk_rate` and `"clk_rate"`. The only reported matches were `devm_clk_get(..., "clk_rate")` in USB host/UDC. **No GPU source match was found by this limited pattern.** This does not exclude indirect parsing, a driver outside `bsp/drivers`, or firmware handling, but it means the old `clk_rate = 1008000000` DTB property cannot presently be treated as the proven runtime clock control.
+
+The compiled hybrid `/soc@3000000/gpu@1800000` property names include `clocks`, `clock-names`, `resets`, `reset-names`, `power-domains`, `operating-points-v2`, and `gpu-supply`. Thus the **OPP table and supply binding** are the next inputs to inspect before restoring the old vendor-only `clk_rate` value. The source excerpt confirms the board DTSI sets DCDC4 to 500000..1540000 µV; that constraint range alone is not proof a voltage change occurred.
+
+Read-only verification:
+
+```bash
+K=/root/opi3w-hybrid-build-0.2.7
+DTB="$K/stage/boot/sun60i-a733-orangepi-zero3w.dtb"
+
+fdtget -t x "$DTB" /soc@3000000/gpu@1800000 operating-points-v2
+fdtget -t x "$DTB" /soc@3000000/gpu@1800000 gpu-supply
+
+# Resolve phandles to actual nodes using the existing full decompiled DTS.
+dtc -I dtb -O dts "$DTB" 2>/dev/null > /tmp/opi3w-gpu-opp.dts
+grep -n -C 12 -E 'opp-hz|opp-microvolt|operating-points-v2|gpu-supply' /tmp/opi3w-gpu-opp.dts | head -180
+
+# Inspect bound GPU driver implementation and configuration, not just property-name matches.
+grep -RnsE 'dev_pm_opp|opp_table|opp-hz|clk_set_rate|regulator_set_voltage' \
+ "$K/linux/bsp/drivers/gpu" "$K/linux/drivers/gpu" 2>/dev/null | head -120
+```
+
+**Revised claim:** We have established a missing legacy `clk_rate` property and a widened DCDC4 constraint, not a demonstrated GPU MHz root cause. If OPP-based frequency management is functioning, the absence of the legacy property could be correct and preferable for low vendor lock-in. Measure actual clocks and voltage on hardware after MMC/PF stabilization. Do not force 1,008 MHz or 960 mV from this static comparison.
