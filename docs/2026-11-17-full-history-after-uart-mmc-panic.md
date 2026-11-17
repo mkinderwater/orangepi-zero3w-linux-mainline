@@ -187,3 +187,24 @@ No new kernel is recommended until the specific `caps2` assignment and `sunxi_pc
 - [MiniMyth 7.3 A733 patch inventory](2026-11-16-linux-7x-a733-source-audit.md) for candidate bank-voltage semantics.
 
 **Result:** the smallest meaningful next task is **identify the vendor host capability assignment and PF pinctrl warning branch**, not another kernel port or handoff experiment.
+
+## 2026-11-17 confirmed source-level MMC ABI collision: CAP2 bit 9
+
+Latest actual compiled hybrid 0.2.7 source excerpts from operator show:
+
+```c
+/* bsp/drivers/mmc/sunxi-mmc.h:646 */
+#define MMC_CAP2_HC_ERASE_SZ (1 << 9)
+/* mainline 6.18 include/linux/mmc/host.h:440 */
+#define MMC_CAP2_SD_UHS2 (1 << 9)
+```
+
+Imported vendor `bsp/drivers/mmc/sunxi-mmc.c:4111-4112` uses `mmc->caps2 |= MMC_CAP2_HC_ERASE_SZ;` when `mmc-high-capacity-erase-size` is present in the SDMMC node. The imported `sunxi_mmc_ops` has **no** `uhs2_control` callback. Linux 6.18 core `drivers/mmc/core/sd_uhs2.c` dispatches `mmc_attach_sd_uhs2` when `host->caps2 & MMC_CAP2_SD_UHS2` and calls `host->ops->uhs2_control` in `sd_uhs2_power_up()`; the board UART Oops showed `pc=0x0`, `lr=sd_uhs2_power_up+0x58`. **This is a definite bit-number collision and a highly compelling explanation for the null-call crash.** Final attribution requires confirming the SDMMC DT node enabling `mmc-high-capacity-erase-size` or logging `caps2` at host registration. Do not claim those inputs already confirmed.
+
+The other two historical backfills in the same header: `MMC_CAP2_CACHE_CTRL (1<<1)`, `MMC_CAP2_PACKED_WR (1<<13)`. These are candidates for a broader compatibility macro audit against 6.18; their old intended semantics are not established to have a valid counterpart.
+
+**Correct isolated Trial U:** remove the obsolete `MMC_CAP2_HC_ERASE_SZ` assignment from the vendor extra-DT property path when targeting 6.18, or map old erase-size intent to a supported modern API only after proving it. Avoid making the conflicting bit a different unused `caps2` bit, fake UHS-II callback, or globally disabling UHS-II in core. Preserve UHS-I, SDIO, DTB and power configuration. Add static assertion preventing vendor backfill aliases of Linux 6.18-defined bits. Build from original 0.2.7 baseline and test serial; PF panic may still stop the kernel independently.
+
+**PF analysis still separate:** pinctrl source uses `sunxi_power_auto_switch_pf` for A733. `sun60iw2_get_soc_ver()` picks type 4 vs type 10 with different register maps / reversed status bits. Current source contains six explicit fatal panics. No PF fix authorized from the capability evidence.
+
+**Conclusion:** First concrete cross-version **ABI-level source defect** found in hybrid 0.2.7; focus on one isolated host fix and separate PF diagnostics.
