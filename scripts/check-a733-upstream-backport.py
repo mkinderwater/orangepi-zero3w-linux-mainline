@@ -124,11 +124,40 @@ def bridge_pinctrl_618_flags(work):
     source.write_text(src.replace(old_src, old_src + "\n\tpctl->flags = flags;"))
     return "6.18 variant retained; full flags field and assignment added in SCRATCH"
 
+def adapt_pinctrl_patch4_header(body):
+    """Retain 6.18's variant field as hunk context for A733 patch 4/7.
+
+    Only alter patch text, NOT its additions or removals. If upstream
+    changes the exact hunk, refuse to guess.
+    """
+    old = ("@@ -179,6 +187,8 @@ struct sunxi_pinctrl {\n"
+           " \tstruct pinctrl_dev\t\t*pctl_dev;\n"
+           " \tunsigned long\t\t\tflags;\n"
+           " \tu32\t\t\t\tbank_mem_size;")
+    new = ("@@ -179,7 +187,9 @@ struct sunxi_pinctrl {\n"
+           " \tstruct pinctrl_dev\t\t*pctl_dev;\n"
+           " \tunsigned long\t\t\tvariant;\n"
+           " \tunsigned long\t\t\tflags;\n"
+           " \tu32\t\t\t\tbank_mem_size;")
+    if body.count(old) != 1:
+        raise ValueError("Unexpected A733 patch-4 header hunk: manual review")
+    return body.replace(old, new)
+
+
 def validate_group(name, parsed, source, work, out, adapt_rename=False, adapt_layout=False):
     results = []
     for i, patch in enumerate(parsed, 1):
         file = out / (name + "-%02d.patch" % i)
-        file.write_text(patch["body"])
+        patched_body = patch["body"]
+        if adapt_layout and name == "pinctrl-base" and i == 4:
+            try:
+                patched_body = adapt_pinctrl_patch4_header(patched_body)
+            except ValueError as err:
+                results.append({"order": i, "subject": patch["subject"],
+                                "message_id": patch["mid"], "paths": patch["files"],
+                                "check": False, "diagnostic": str(err)})
+                break
+        file.write_text(patched_body)
         if adapt_rename and name == "pinctrl-base" and i == 1:
             try:
                 changed = rename_first_pinctrl_patch(work)
@@ -156,7 +185,7 @@ def validate_group(name, parsed, source, work, out, adapt_rename=False, adapt_la
         record = {"order": i, "subject": patch["subject"], "message_id": patch["mid"],
                   "paths": patch["files"], "check": rc == 0, "diagnostic": msg}
         if bridge:
-            record["adaptation"] = bridge
+            record["adaptation"] = bridge + "; patch-4 header context rebased to preserve variant"
         results.append(record)
         if rc != 0:
             break
