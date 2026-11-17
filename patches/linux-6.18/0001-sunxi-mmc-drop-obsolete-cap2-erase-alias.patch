@@ -19,7 +19,7 @@ are required before claiming a stable boot.
 diff --git a/bsp/drivers/mmc/sunxi-mmc.c b/bsp/drivers/mmc/sunxi-mmc.c
 --- a/bsp/drivers/mmc/sunxi-mmc.c
 +++ b/bsp/drivers/mmc/sunxi-mmc.c
-@@ -4108,8 +4108,6 @@ static int sunxi_mmc_extra_of_parse(struct mmc_host *mmc)
+@@ -4108,7 +4108,5 @@ static int sunxi_mmc_extra_of_parse(struct mmc_host *mmc)
  
  	np = mmc->parent->of_node;
  
