@@ -87,3 +87,25 @@ All eight static checks passed, no `dtc` warning was shown by the wrapper. The p
 **Important:** this board DTS deliberately omits a memory node and bootargs. Neither the compiler nor the eight policy checks proves that the frozen U-Boot/Boot0 chain inserts a valid memory node, initrd start/end, chosen stdout, console argument or any runtime fixup into the DTB. Neither the existing vendor/hybrid FDT memory value (512 MiB) nor an assumed board RAM capacity may be copied as a substitute for observed handoff. The kernel may fail before UART output if those requirements are wrong. Also verify generic `8250_dw` earlycon/clock handling against the published upstream A733 UART runtime dependencies; compiled object alone is not hardware evidence.
 
 **Next acceptance gate: read-only audit of actual existing boot scripts, U-Boot `booti` arguments, FDT environment/fixup commands, initrd source/size and UART earlycon syntax.** Do not change or flash the known hybrid boot medium, nor claim the UART-only DTB is bootable.
+
+## Verified M2dc staged boot-script handoff (operator's 2026-11-17 logs)
+
+This is **actual script evidence**, not a hypothetical boot process. The operator inspected `/root/opi3w-m2-work/m2dc-staged-verified/A/boot/boot.cmd` and `mainline/stage2.cmd`.
+
+First-stage:
+```text
+setenv m2db_stage2_addr 0x46000000
+if load ${devtype} ${devnum} ${m2db_stage2_addr} ${prefix}mainline/stage2.scr; then
+  source ${m2db_stage2_addr}
+fi
+echo "M2db stage2 failed or returned; no fallback"
+while true; do sleep 5; done
+```
+
+Stage two **really uses Linux ARM64 raw `booti`**, not vendor `bootm`. It sets `kernel_addr_r=0x41000000`, `fdt_addr_r=0x44000000`, `ramdisk_addr_r=0x45000000`, loading `mainline/Image`, `mainline/sun60i-a733-orangepi-zero3w.dtb`, and `mainline/vendor-raw-initrd`. It calls `fdt addr`, `fdt resize 65536`, then `booti ${kernel_addr_r} ${ramdisk_addr_r}:${filesize} ${fdt_addr_r}`. If load or kernel handoff returns, it loops without fallback. No `tiny-uInitrd` is selected, and that file is a 64-byte U-Boot legacy header + gzip payload, not a raw image acceptable unchanged to this `booti` invocation.
+
+The current UART-only DTB has **no `/memory` node**, and nothing in stage two's explicit `fdt addr` / `fdt resize` creates one. U-Boot may provide fixups later in `booti`, but this is **not proven by the script**. The vendor hybrid compiled DTB carries a 512 MiB memory placeholder; do not copy that value because the firmware/runtime bank map is unverified. Before launching clean Image+new DTB on hardware, inspect the U-Boot effective DRAM bank map (`bdinfo`) and FDT fixup behavior using a reversible control boot or serial U-Boot inspection. Do not present a `booti` no-initrd test as boot-ready until the memory prerequisite is handled.
+
+For early console, the old script uses `earlyprintk=sunxi-uart,0x02500000` plus bare `earlycon` and `console=ttyS0,115200`; an upstream DesignWare 8250 UART may require explicit `earlycon=uart8250,mmio32,0x02500000`. This is a hypothesis to verify, not proof of UART output. The earlier `CONFIG_SERIAL_8250_DW=y` link passed, yet runtime UART configuration remains untested.
+
+**Keep the M2dc known-control medium and both clean UART Image/DTB artifacts intact.** A future test should use a separate medium or reversible U-Boot manual load, a `booti <kernel> - <fdt>` serial-entry diagnostic only after memory fixing, and no PMIC/SD supply changes.
