@@ -1,0 +1,24 @@
+From: A733 MMC0/1/2 upstream binding backport
+Subject: [PATCH] dt-bindings: mmc: add A733 controllers with D1 fallback
+
+Backport of Jerome Brunet's 2026-07-31 upstream A733 binding:
+https://lists.infradead.org/pipermail/linux-arm-kernel/2026-July/1156864.html
+
+A733 MMC0/1/2 are D1-compatible. MMC3 is NOT covered.
+No host-driver code, clock, voltage, or pinctrl changes.
+
+---
+diff --git a/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml b/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml
+--- a/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml
++++ b/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml
+@@ -56,7 +56,9 @@ properties:
+           - const: allwinner,sun50i-h616-mmc
+           - const: allwinner,sun50i-a100-mmc
+       - items:
+-          - const: allwinner,sun55i-a523-mmc
++          - enum:
++              - allwinner,sun55i-a523-mmc
++              - allwinner,sun60i-a733-mmc
+           - const: allwinner,sun20i-d1-mmc
+ 
+   reg:
