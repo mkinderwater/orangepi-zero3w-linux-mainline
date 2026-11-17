@@ -49,3 +49,22 @@ python3 scripts/compile-a733-soc-dts-v3.py \
 ```
 
 Preserve baseline `a2e34a97113b9fff7c64112d46e6f9e131bf2ebe13d9cb1734b4fea49803e311` and do not flash any synthetic DTB.
+
+## 2026-11-17: upstream SoC DTS CPP and DTC PASS; Zero 3W UART-only board DTS staged
+
+Operator ran `scripts/compile-a733-soc-dts-v3.py` on the v3 SoC source; the tool returned `DTC_PASS_SYNTHETIC_ONLY`, with no printed `dtc` warnings. This establishes include/preprocessor/DT compiler success, **not** a Zero 3W DTB or a boot.
+
+Board-specific source added at `dts/sun60i-a733-orangepi-zero3w-uart-only.dts`. It includes the exact v3 upstream A733 SoC DTS and uses only a verified board compatible, console alias for `uart0`, `stdout-path=serial0:115200n8`, a board-level 24 MHz oscillator and `&uart0 { status = "okay"; }`. **No UART pinctrl assignment** is provided because the vendor Zero 3W UART0 pin lists are literally empty and the upstream Cubie PB9/PB10 group is claimed by TWI8 in the vendor Zero 3W configuration. No memory capacity, PMIC node, MMC0 enable, UHS modes, power-source or bootargs override is introduced. The original vendor firmware's memory/initrd fixups remain unverified for this new DTB.
+
+Run `scripts/compile-zero3w-uart-only-dtb.py` against the source tree already containing the upstream A733 SoC DTS:
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 scripts/compile-zero3w-uart-only-dtb.py \
+ --source /root/opi3w-m2-work/a733-dts-v3-source-check-v1/linux \
+ --board /root/orangepi-zero3w-linux-mainline/dts/sun60i-a733-orangepi-zero3w-uart-only.dts \
+ --output /root/opi3w-m2-work/zero3w-uart-only-dtb-check-v1
+```
+
+The checker uses `cpp`, `dtc`, decodes the produced DTB, and checks the serial alias, console configuration, disabled MMC0 and disabled PMIC bus. It does not edit original kernel sources or boot media. A pass remains **static only**; do not boot or flash the new DTB without reviewing firmware memory and chosen/initrd overlays plus the exact UART pin function and earlycon UART driver behavior. Note also that upstream v3 UART integration may need a later `8250_dw` runtime patch beyond merely compiling `CONFIG_SERIAL_8250_DW=y`.
