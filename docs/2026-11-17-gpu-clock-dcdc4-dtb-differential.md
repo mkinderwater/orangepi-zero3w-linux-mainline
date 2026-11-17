@@ -93,3 +93,27 @@ grep -RnsE 'dev_pm_opp|opp_table|opp-hz|clk_set_rate|regulator_set_voltage' \
 ```
 
 **Revised claim:** We have established a missing legacy `clk_rate` property and a widened DCDC4 constraint, not a demonstrated GPU MHz root cause. If OPP-based frequency management is functioning, the absence of the legacy property could be correct and preferable for low vendor lock-in. Measure actual clocks and voltage on hardware after MMC/PF stabilization. Do not force 1,008 MHz or 960 mV from this static comparison.
+
+## 2026-11-17: GPU OPP and DCDC4 phandles resolved, frequencies confirmed
+
+Actual operator `dtc` decompilation and `fdtget` resolve:
+- `/soc@3000000/gpu@1800000`: `compatible="img,gpu"`, `operating-points-v2=<0x134>`, `gpu-supply=<0x67>`, `power-domains=<0x13 0x05>`, clocks and reset specified.
+- `0x134` resolves to sibling `gpu-opp-table` with vendor `compatible="allwinner, img-operating-points"` (including a literal space following comma).
+- GPU OPP rates (not CPU cluster OPPs): **400, 600, 800, 1008 MHz**. At 800 MHz `opp-microvolt=<0xcd140>` = **840000 µV**; at 1008 MHz `opp-microvolt=<0xea600>` = **960000 µV**. A number of `opp-microvolt-vf*` entries customize requested voltage per silicon/VF bin. At 400/600 MHz dtc represents the default cells ambiguously as string-looking escapes; extract raw 32-bit values before reporting exact voltages.
+- `0x67` resolves to `axp8191-dcdc4`, with hybrid min 500000 µV, max 1540000 µV, `regulator-boot-on`, `regulator-always-on`. The vendor fixed 960000 µV constraint matches the hybrid's 1008 MHz default request, but does not prove vendor runtime frequency or regulator voltage.
+- Relevant hybrid `build/.config` output: `# CONFIG_DRM_POWERVR is not set`, `# CONFIG_DRM_PANFROST is not set`, `# CONFIG_AW_GPU_PM_DOMAINS is not set`. This confirms **those options** disabled, not that no other GPU module/built-in driver exists.
+- `drivers/gpu/drm/imagination/pvr_drv.c` contains source match `.compatible="img,img-axe"`, with adjacent comment referring to newer device trees. The precise compatibility table, GPU silicon revision and any vendor out-of-tree driver remain to be established before claiming incompatibility.
+
+**Revised conclusion:** 1008 MHz was **not deleted from the hybrid GPU OPP table**. The vendor-only `clk_rate` property was deleted, while 1008 MHz at 960 mV remains an available *declared* GPU OPP. The remaining question is whether an **enabled, hardware-matching GPU driver** binds, initializes its power domain and clocks, consumes the correct OPP data (including bin selection), and selects its rate at runtime. Do **not** restore `clk_rate`, force 1008 MHz, switch on random GPU drivers, or change DCDC4 limits without driver and hardware confirmation.
+
+### Narrow next source checks
+
+```bash
+K=/root/opi3w-hybrid-build-0.2.7
+sed -n '1470,1530p' "$K/linux/drivers/gpu/drm/imagination/pvr_drv.c"
+grep -E '^CONFIG_.*(GPU|POWERVR|PVR|IMG|PM_DOMAIN|PM_GENERIC|PM_OPP)' "$K/build/.config"
+grep -RnsF '"img,gpu"' "$K/linux" --include='*.c' --include='*.h' | head -80
+grep -RnsF 'allwinner, img-operating-points' "$K/linux" --include='*.c' --include='*.h' | head -40
+```
+
+These read-only checks determine whether an actual driver consumes the vendor GPU compatible/OPP binding. Runtime validation must wait until MMC/PF recovery permits a stable system.
