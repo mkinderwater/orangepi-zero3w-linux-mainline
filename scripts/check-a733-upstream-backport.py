@@ -128,6 +128,46 @@ def validate_group(name, parsed, source, work, out, adapt_rename=False):
             break
     return results
 
+def conflict_context(work, patch, out):
+    """Capture exact 6.18 context for failed hunks, preserving the scratch tree.
+
+    Intended for review, not partial patch application or auto-merging.
+    """
+    paths = sorted(set(patch["files"]))
+    blocks = []
+    markers = {
+        "drivers/pinctrl/sunxi/pinctrl-sunxi.c": (
+            "sunxi_bank_offset(", "sunxi_dlevel_reg(",
+            "sunxi_pinctrl_init_with_flags(", "pctl->flags = flags;",
+            "pctl->bank_mem_size = D1_BANK_MEM_SIZE;"),
+        "drivers/pinctrl/sunxi/pinctrl-sunxi.h": (
+            "D1_BANK_MEM_SIZE", "SUNXI_PINCTRL_NCAT2_REG_LAYOUT",
+            "struct sunxi_pinctrl {", "sunxi_irq_base_reg("),
+    }
+    for name in paths:
+        path = work / name
+        if not path.is_file():
+            blocks.append("MISSING " + name)
+            continue
+        data = path.read_text(errors="replace").splitlines()
+        blocks.append("=== " + name + " ===")
+        seen = set()
+        for marker in markers.get(name, ()):
+            offsets = [i for i, line in enumerate(data) if marker in line]
+            for index in offsets[:2]:
+                lo = max(0, index - 6)
+                hi = min(len(data), index + 22)
+                span = (lo, hi)
+                if span in seen:
+                    continue
+                seen.add(span)
+                blocks.append("--- marker: " + marker + " ---")
+                blocks.extend(f"{j+1}: {data[j]}" for j in range(lo, hi))
+    dest = out / "pinctrl-patch4-6.18-context.txt"
+    dest.write_text("\\n".join(blocks) + "\\n")
+    return str(dest)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--archive", type=Path, required=True)
@@ -177,6 +217,9 @@ def main():
                     continue
                 entries = validate_group(name, groups[name], args.source, work, args.output,
                                          adapt_rename=args.adapt_pinctrl_rename)
+                if name == "pinctrl-base" and len(entries) >= 4 and not entries[3]["check"]:
+                    path = conflict_context(work, groups[name][3], args.output)
+                    entries[3]["review_context_file"] = path
                 success = len(entries) == EXPECTED[name] and all(
                     e["check"] and e.get("scratch_apply") for e in entries)
                 report["groups"][name] = {
