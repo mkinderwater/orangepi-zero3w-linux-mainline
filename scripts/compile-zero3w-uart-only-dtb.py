@@ -49,7 +49,7 @@ def main():
         save()
         print(r.stderr[-10000:])
         return 1
-    r = stage("dtc", ["dtc", "-Wno-unit_address_vs_reg", "-I", "dts",
+    r = stage("dtc", ["dtc", "-I", "dts",
                       "-O", "dtb", "-o", dtb, prep])
     if r.returncode:
         report["status"] = "DTC_FAILED"
@@ -69,7 +69,6 @@ def main():
         "model": "Xunlong Orange Pi Zero 3W (UART-only validation)" in data,
         "console_alias": "serial0 = " in data and "serial@2500000" in data,
         "console_stdout": 'stdout-path = "serial0:115200n8"' in data,
-        "mmc0_disabled": "mmc@4020000" in data and "mmc@4020000" in data.split("status = \"disabled\"")[0] if False else True,
         "no_axp318w_alias": "x-powers,axp318w" not in data,
         "no_bootargs_override": "bootargs =" not in a.board.read_text(),
         "no_fixed_memory_size": "memory@" not in a.board.read_text(),
