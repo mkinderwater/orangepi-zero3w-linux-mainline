@@ -99,3 +99,25 @@ NOT_HARDWARE_VALIDATED: do not bind AXP8191 to AXP318W until register identity c
 Result: **source applicability 5/5, compile PASS**. No full combined kernel link including PMIC, no live regulator programming, no electrical proof, and no AXP8191-compatible alias have been tested.
 
 Next: search the vendor's generic AXP core and regulator definitions, which need not have `8191` in their filenames. Confirm AXP8191 chip identity and CLDO5/SWOUT2 register mapping, then merge PMIC into a new clean source track without modifying the 4,429,832-byte combined CCU+pinctrl baseline.
+
+## Vendor regulator implementation located, 2026-11-17
+
+The operator found the previously missed vendor **AXP8191 core under generic AXP2101 filenames**:
+- `bsp/drivers/power/include/axp2101.h` defines `AXP8191_DCDC_CTL2=0x11`, `AXP8191_CLDO5OUT_VOL=0x33`, `AXP8191_LDO_POWER_ON_OFF_CTL2=0x21`, `AXP8191_IC_TYPE=0x03` and `AXP8191_CHIP_ID=0x0e`.
+- `bsp/drivers/power/regulator/axp2101-regulator.c:1354-1356` describes `DC1SW1` and `DC1SW2` switched outputs using `AXP8191_DCDC_CTL2`.
+- The same vendor regulator source at lines 1405-1406 describes `CLDO5` voltage range **500..3400 mV in 100mV steps** and voltage register `0x33`, enable register `0x21`. The exact enable bit appears on the following descriptor line and has **not yet been supplied**.
+- Upstream AXP318W v8 also uses `0x33` for CLDO5 voltage selection and `0x11` for its DCDC1 switch outputs. The upstream `SWOUT2` bit is 4, but the vendor `DC1SW2` enable bit remains to be compared.
+- **Register agreement strongly suggests related silicon design, but it is not yet proof of chip identity, complete voltage encoding, or safe enable behavior.**
+
+Focused source-only comparison script: `scripts/audit-axp8191-axp318w-registers.sh`. It prints exact source context, macros, switch descriptors, identification routines and hashes; it **never reads or writes a live PMIC**.
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+bash scripts/audit-axp8191-axp318w-registers.sh \
+ /root/opi3w-hybrid-build-0.2.7/linux/bsp \
+ /root/opi3w-m2-work/axp318w-clean-compile-v1/linux \
+ /root/opi3w-m2-work/axp8191-axp318w-register-audit-v1.txt
+```
+
+**Still prohibited:** forcing a DTB `compatible` alias or enabling/disabling MMC0 rails until actual ID probing and exact descriptor equivalence are separately confirmed.
