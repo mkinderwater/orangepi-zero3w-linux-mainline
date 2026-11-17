@@ -128,3 +128,39 @@ git apply --check \
 If the hybrid source has no `.git` directory, `git apply --check` still parses and checks patch context when Git is installed and run in the source root. Preserve an untouched copy first. Neither `git apply --check` nor this inventory modifies kernel source.
 
 **Do not build or deploy from this audit alone.** The original 0.2.7 kernel is already a proven base; the goal is a maintainable full integration whose real subsystems pass physical tests, not one that simply stops panicking.
+
+## 8. Complete source provenance check after audit tool expansion
+
+The audit tool now supports `--full-core` to hash-compare all hybrid core source files to the exact 6.18.19 reference and `--bsp-reference` to hash-compare the **entire imported BSP tree** against the pinned donor. This is important: a spot diff of `Kbuild`/`Kconfig` alone cannot substantiate an inclusive integration.
+
+```bash
+K=/root/opi3w-hybrid-build-0.2.7
+R=/root/orangepi-zero3w-linux-mainline
+OUT=/root/opi3w-m2-work/618-whole-integration-audit
+
+cd "$R" && git pull --ff-only
+
+# If the pinned BSP checkout is available, set BSPROOT to that actual directory.
+# It must contain a drivers/ subdirectory.
+BSPROOT=""
+args=()
+if [ -n "$BSPROOT" ] && [ -d "$BSPROOT/drivers" ]; then
+  args+=(--bsp-reference "$BSPROOT")
+fi
+
+python3 "$R/scripts/audit-618-integration-inventory.py" \
+  --hybrid "$K/linux" \
+  --mainline /root/opi3w-hybrid-sources-0.1.0/linux \
+  --repo "$R" \
+  --full-core \
+  "${args[@]}" \
+  --output "$OUT"
+
+cat "$OUT/integration-inventory.md"
+cd "$K/linux"
+git apply --check "$R/patches/linux-6.18/0001-sunxi-mmc-drop-obsolete-cap2-erase-alias.patch"
+```
+
+A green `git apply --check` is **patch-context compatibility only**. Do not apply it on the only copy of the working source tree, and do not assume untracked WSL patches have been enumerated until this audit is reviewed. Test with a separately copied worktree, source SHA snapshot, matching `.config`, successful compilation and UART serial log. Compare hashes of resulting Image/DTB with pinned original before flashing.
+
+**Correctness guard:** `MMC_CAP2_HC_ERASE_SZ` was not just a generic experimental definition, it is a collision with an actively meaningful Linux 6.18 flag. Review and remove other obsolete capability flags where no modern API exists. There must be no ad-hoc bit allocation to preserve compatibility.
