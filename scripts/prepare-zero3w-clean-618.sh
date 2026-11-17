@@ -22,24 +22,25 @@ SC="$SRC/scripts/config"
 # Explicitly requested baseline features. No vendor or unrelated device families.
 enable=(
   64BIT MMU SMP ARM64
+  BLOCK
+  ARM64_VA_BITS_48
   OF OF_EARLY_FLATTREE
   BLK_DEV_INITRD BINFMT_ELF
   DEVTMPFS DEVTMPFS_MOUNT
-  NET INET PACKET UNIX
   TTY SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_EARLYCON
   MMC MMC_BLOCK MMC_SUNXI
   REGULATOR PINCTRL
   MFD_CORE
-  EXT4_FS VFAT_FS FAT_FS NLS_CODEPAGE_437 NLS_ISO8859_1
-  USB_SUPPORT USB USB_EHCI_HCD USB_OHCI_HCD
+  EXT4_FS
   PM
-  MODULES
   PRINTK
 )
 # These are intentionally off; a real board integration must provide their
 # upstream equivalents or be declared a release blocker, never re-enable silently.
 disable=(
   AW_BSP AW_MMC AW_GPU_PM_DOMAINS AW_PM_DOMAINS
+  ARM64_LPA2 ARM64_VA_BITS_52
+  NET INET USB_SUPPORT USB USB_EHCI_HCD USB_OHCI_HCD
   DRM_POWERVR DRM_PANFROST DRM_NOUVEAU DRM_AMDGPU DRM_RADEON DRM_I915
   AW_PCK600_DOMAINS SUN55I_PCK600
   SOUND SND MEDIA_SUPPORT VIDEO_DEV DVB_CORE
@@ -71,12 +72,13 @@ echo "=== Kernel configuration footprint ==="
 printf 'enabled built-in: '; grep -c '^CONFIG_.*=y$' "$CONFIG" || :
 printf 'enabled modules:  '; grep -c '^CONFIG_.*=m$' "$CONFIG" || :
 printf 'disabled:         '; grep -c '^# CONFIG_.* is not set$' "$CONFIG" || :
-echo "=== Requested options unresolved (not necessarily fatal for first pass) ==="
+echo "=== Requested options unresolved (hard gate for boot dependencies) ==="
 awk -F '\t' 'NR>1 && $2=="y" && $3!="y" {print $1, $3}' "$OUT/config-resolution.tsv"
 echo "=== Hard gates ==="
-for s in ARM64 OF DEVTMPFS MMC MMC_BLOCK EXT4_FS BLK_DEV_INITRD; do
+for s in ARM64 OF DEVTMPFS BLOCK MMC MMC_BLOCK MMC_SUNXI EXT4_FS BLK_DEV_INITRD SERIAL_8250 SERIAL_8250_CONSOLE SERIAL_EARLYCON; do
  if ! grep -q "^CONFIG_${s}=y$" "$CONFIG"; then echo "MISSING REQUIRED $s" >&2; FAIL=1; fi
 done
 if [[ "$FAIL" -ne 0 ]]; then echo "FAIL: clean config missing a hard gate" >&2; exit 3; fi
 echo "CLEAN_CONFIG_PREPARED=$CONFIG"
-echo "NOT_BOOTABLE: require A733 CCU, pinctrl, PMIC, MMC, console, Wi-Fi/USB and DTB hardware validation"\necho "GPU is intentionally NOT part of the boot-minimal profile; stage with separate upstream GPU fragment after root boot"
+echo "NOT_BOOTABLE: still require A733 CCU, pinctrl, PMIC, SD/MMC controller, console and DTB hardware validation"
+echo "Network/USB/GPU intentionally excluded from the boot-minimal profile"
