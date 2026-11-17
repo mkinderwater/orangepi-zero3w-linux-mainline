@@ -164,7 +164,7 @@ def conflict_context(work, patch, out):
                 blocks.append("--- marker: " + marker + " ---")
                 blocks.extend(f"{j+1}: {data[j]}" for j in range(lo, hi))
     dest = out / "pinctrl-patch4-6.18-context.txt"
-    dest.write_text("\\n".join(blocks) + "\\n")
+    dest.write_text("\n".join(blocks) + "\n")
     return str(dest)
 
 
