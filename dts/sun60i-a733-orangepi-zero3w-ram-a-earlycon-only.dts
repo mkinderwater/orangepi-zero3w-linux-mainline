@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+/dts-v1/;
+
+#include "sun60i-a733.dtsi"
+
+/ {
+	model = "Xunlong Orange Pi Zero 3W (RAM-A earlycon-only)";
+	compatible = "xunlong,orangepi-zero3w", "allwinner,sun60i-a733";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* Boot0/U-Boot reported 1 GiB physical DRAM at 0x40000000. */
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x0 0x40000000 0x0 0x40000000>;
+	};
+
+	/* Source-backed BL31 secure firmware carveout, not usable by Linux. */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		bl31@48000000 {
+			reg = <0x0 0x48000000 0x0 0x01000000>;
+			no-map;
+		};
+	};
+};
+
+/* A733 CCU needs a board-provided 24 MHz crystal frequency. */
+&osc {
+	clock-frequency = <24000000>;
+};
+
+/*
+ * DIAGNOSTIC ONLY. Prevent native UART driver from taking control.
+ * Firmware configured UART0 at 0x02500000; earlycon=uart8250,mmio32,
+ * 0x02500000 can still send printk through direct MMIO at 115200.
+ * No Linux native UART input or interactive tty is expected.
+ * Do not use this DTB for normal operation.
+ */
+&uart0 {
+	status = "disabled";
+};
+
+/*
+ * MMC0, R-I2C0 and both PMICs remain disabled by the SoC DTS.
+ * No 1.8V transition, regulator enable/disable, or SD-root claim.
+ * RAM-A supplies 1 GiB and reserves BL31; initrd placement remains firmware-managed.
+ */
