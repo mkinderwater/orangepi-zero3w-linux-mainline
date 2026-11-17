@@ -170,3 +170,39 @@ python3 scripts/build-a733-clean-with-axp318w.py \
 ```
 
 The output is still a **source/build artifact only**. PMIC compatibility remains blocked on chip ID and rail-parent correctness. MMC0 root boot remains blocked on canonical upstream DTS, clocks/resets, safe voltage selection, PMIC initialization and hardware validation.
+
+## Operator result: full ARM64 clean CCU + pinctrl + AXP318W link PASS
+
+The operator ran `scripts/build-a733-clean-with-axp318w.py` using the existing combined CCU/pinctrl source, independently compiled AXP318W v8 source and original clean v3 config. The actual full kernel link completed:
+
+```text
+LD      vmlinux.unstripped
+NM      System.map
+SORTTAB vmlinux.unstripped
+OBJCOPY vmlinux
+GEN     modules.builtin.modinfo
+GEN     modules.builtin
+OBJCOPY arch/arm64/boot/Image
+CLEAN_CCU_PINCTRL_AXP318W_IMAGE: /root/opi3w-m2-work/a733-clean-with-axp318w-v1/obj/arch/arm64/boot/Image
+SIZE_BYTES: 4562952
+SHA256: 56f4fe1bfbee86843ea59cd314efc04f9518f5a0998492eccfff948c99507985
+STATUS: LINK_PASS
+No AXP8191 alias, no board DTB, no boot or voltage validation.
+```
+
+Size comparison against measured baselines:
+
+| Build | Raw Image bytes | Notes |
+| --- | ---: | --- |
+| Hybrid 0.2.7 | 8,591,368 | Vendor BSP-based, earlier UART/PID1 evidence but failed MMC/pinctrl |
+| Clean A733 CCU + pinctrl | 4,429,832 | CCU/pinctrl linked, no AXP318W |
+| Clean A733 CCU + pinctrl + AXP318W | **4,562,952** | Full link PASS, +133,120 bytes (+3.00%) from clean base |
+
+The integrated clean Image is **4,028,416 bytes smaller than hybrid (46.89%)**, but it has deliberately fewer enabled peripherals, so this is not a like-for-like capability comparison. Upstream `MMC_SUNXI=y` is built, but **no board DTS and no voltage-safe MMC0 probe have been demonstrated**.
+
+### Next acceptance gate
+
+1. Verify actual AXP8191/AXP318W identity and read-only probing semantics independently, including MFD interrupt and regulator behavior. A device-tree `x-powers,axp318w` match is not a silicon ID check.
+2. Resolve how the upstream `SWOUT2` driver, whose descriptor parent is `NULL`, will represent the vendor `dc1sw2` `swin-supply = <&reg_dcdc1>` dependency, before attempting regulator enable or disable.
+3. Build a **separate** minimal upstream A733 + Orange Pi Zero 3W DTS containing correct CCU, R-CCU, pinctrl, 24 MHz clock, UART, timer/GIC, MMC0 and PMIC I2C bus nodes. Keep risky consumers and rail transitions disabled until reviewed. Avoid transplanting vendor nodes without compatible/provider validation.
+4. Compile/validate DTB and verify phandle graph and binding compatibility. Preserve the original clean and hybrid boot artifacts. **No boot attempt yet.**
