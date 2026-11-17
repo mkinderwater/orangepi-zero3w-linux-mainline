@@ -1,5 +1,7 @@
 # Try5: read-only A733 UART clock and register diagnostic
 
+> **Hardware update (2026-11-17):** try5b compiled and ran. It measured `clk=22153846`, `parent=apb-uart`, `uartclk=22153846`, `LCR=03`, `IER=00`, `LSR=60`, `MCR=03`, `USR=06` before native console takeover. Output still corrupts immediately at `2500000.serial: ttyS0`. A separate U-Boot read of `0x02002538` returned zero, but this is **not** a simultaneous Linux clock measurement. See [measured findings and try6 hypotheses](2026-11-17-a733-uart-verified-findings-try5b-try6.md). The procedure below is retained as historical build instructions.
+
 ## Current proof
 
 Linux 6.18.19+ RAM-A, try3 and try4 all bring up 1 GiB RAM and eight CPUs, unpack the initramfs, and stop producing readable output exactly as `2500000.serial: ttyS0` registers. The user's try4 board subsequently returned to U-Boot; serial capture alone does not establish whether Linux reset or stalled. Try3's UART skip-set-rate / DLF mask and try4's SCP critical gates did not resolve the visible corruption.
