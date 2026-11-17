@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
+/dts-v1/;
+
+#include "sun60i-a733.dtsi"
+
+/ {
+	model = "Orange Pi Zero 3W (A733 diagnostic 512 MiB window)";
+	compatible = "xunlong,orangepi-zero3w", "allwinner,sun60i-a733";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/*
+	 * Conservative diagnostic RAM window observed in the vendor/hybrid FDT.
+	 * NOT a statement of installed RAM. Boot0/U-Boot may revise this mapping.
+	 */
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x0 0x40000000 0x0 0x20000000>;
+	};
+
+	/* Preserve the BL31 secure-memory carveout from vendor SoC evidence. */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		bl31@48000000 {
+			reg = <0x0 0x48000000 0x0 0x01000000>;
+			no-map;
+		};
+	};
+};
+
+&osc {
+	clock-frequency = <24000000>;
+};
+
+/*
+ * The hybrid uses UART0 at 0x02500000. Vendor UART0 pin groups have
+ * empty pins and must not be copied. Firmware-configured pinmux is
+ * required for the first serial diagnostic.
+ */
+&uart0 {
+	status = "okay";
+};
+
+/*
+ * Deliberately no MMC0, PMIC or HDMI nodes enabled.
+ * HDMI requires separate A733 display-engine and HDMI DRM driver work.
+ * Do not enable 1.8V PF bank switching or UHS modes in this test.
+ */
