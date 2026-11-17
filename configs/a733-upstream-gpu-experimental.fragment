@@ -1,0 +1,12 @@
+# Isolated GPU/PCK600 test configuration only. NOT boot baseline.
+# Apply to a copy of the 6.18.19 source after upstream A733 PCK600 patches
+# and a validated upstream-compatible DTS/OPP table are available.
+CONFIG_PM=y
+CONFIG_PM_GENERIC_DOMAINS=y
+CONFIG_PM_GENERIC_DOMAINS_OF=y
+CONFIG_SUN55I_PCK600=y
+CONFIG_DRM=y
+CONFIG_DRM_POWERVR=y
+# CONFIG_AW_PCK600_DOMAINS is not set
+# CONFIG_AW_GPU_PM_DOMAINS is not set
+# CONFIG_AW_PM_DOMAINS is not set
