@@ -183,3 +183,11 @@ The placeholders deliberately prevent accidentally claiming a mismatched module/
 **Companion source audit:** `scripts/audit-618-integration-inventory.py` now discovers A733 DTS under imported BSP and inspects the compiled DTB. Operator's latest run reported `CAP2_COLLISIONS: 1`, `DTS_CANDIDATES: 10`, `PATCH_FILES: 3`. The counts demonstrate coverage improvements, **not** approval of the unreviewed per-file diffs. Review `integration-inventory.md` or the JSON's `full_core_comparison`, `bsp_comparison` and `device_trees` before drafting any cleaned source patch series.
 
 **Next after source diff review and tests:** build a Debian package/staged kernel-slot prototype on throwaway filesystems. Actual boot-selection integration must remain out of scope until UART manual recovery and bootcount/watchdog semantics are proven on this board.
+
+## 12. GPU clock and regulator audit added as separate hardware gate
+
+The complete compiled-DTB comparison identified a specific GPU policy discrepancy: vendor `gpu@1800000/clk_rate=<1008000000>` (1,008 MHz) was removed in hybrid 0.2.7, while AXP8191 DCDC4 regulator constraints changed from fixed 960,000 µV to 500,000–1,540,000 µV. This is a **confirmed static configuration difference, not runtime GPU frequency or voltage proof**. The root SoC fallback `arm,sun60iw2p1` is also missing in hybrid, relevant to imported vendor HDMI platform matching.
+
+Keep GPU clock policy and DCDC4 regulator constraints separate from MMC/PF repair. Before any GPU clock/voltage edit, identify the actual driver binding reader, verify `gpu-supply` phandle/consumers, and measure working-vendor and repaired-6.18 clocks and voltages. The long-term kernel must use supported common clock/OPP bindings where practical, rather than an unexplained vendor-only `clk_rate` knob.
+
+See [full GPU/DCDC4 DTB differential](2026-11-17-gpu-clock-dcdc4-dtb-differential.md). This is a production acceptance gate for the low-vendor-lock-in deployment.
