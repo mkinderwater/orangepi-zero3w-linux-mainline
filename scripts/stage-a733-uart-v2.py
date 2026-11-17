@@ -7,6 +7,7 @@ Linux 6.18 source that produced the 4,562,952-byte RAM-A Image.
 """
 import argparse
 import hashlib
+from email.header import decode_header, make_header
 import json
 import mailbox
 import re
@@ -24,6 +25,7 @@ EXPECTED = [
 EXPECTED_FILES = {
     "drivers/tty/serial/8250/8250_dw.c",
     "drivers/tty/serial/8250/8250_dwlib.c",
+    "drivers/tty/serial/8250/8250_dwlib.h",
     "Documentation/devicetree/bindings/serial/snps-dw-apb-uart.yaml",
 }
 def cmd(*args, cwd=None, check=True):
@@ -85,7 +87,9 @@ def main():
             raise RuntimeError(f"Expected four v2 patches, got {len(messages)}")
         patches = []
         for i, (msg, part) in enumerate(zip(messages, EXPECTED), 1):
-            subject = str(msg.get("Subject", ""))
+            # RFC 5322 folds long Subject headers across physical lines.
+            # Decode encoded-words too, then compare canonical whitespace.
+            subject = " ".join(str(make_header(decode_header(msg.get("Subject", "")))).split())
             if f"v2 {i}/4" not in subject or part not in subject:
                 raise RuntimeError(f"Unexpected patch {i} subject: {subject}")
             body = msg.get_payload(decode=True).decode("utf-8", "replace")
@@ -106,7 +110,7 @@ def main():
                 raise RuntimeError(f"Patch check failed for {patch.name}; no fuzzy edits:\n{test.stderr}")
             cmd("git", "apply", patch, cwd=staged)
         source_text = (staged / "drivers/tty/serial/8250/8250_dw.c").read_text()
-        if '"allwinner,sun60i-a733-uart", .data = &dw8250_skip_set_rate_data' not in source_text:
+        if not re.search(r'"allwinner,sun60i-a733-uart".{0,180}dw8250_skip_set_rate_data', source_text, re.S):
             raise RuntimeError("A733 SKIP_SET_RATE match missing after apply")
         report["status"] = "PATCHES_APPLIED_UNBUILT"
         report["prepared_source"] = str(staged)
