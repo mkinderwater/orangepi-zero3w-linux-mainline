@@ -126,9 +126,21 @@ def main():
         evidence["configurations"][name] = next(
             (line for line in cfg.splitlines() if line.startswith("CONFIG_"+name+"=")
              or line.startswith("# CONFIG_"+name+" is not set")), "UNKNOWN")
-    dts_root = a.hybrid / "arch/arm64/boot/dts"
-    candidates = sorted(set(dts_root.rglob("*zero3w*.dts")) |
-                        set(dts_root.rglob("*a733*.dtsi")))
+    # A733 board DTS may live under the imported BSP rather than upstream.
+    # Scan all actual source roots, retaining candidates by name and SoC content.
+    roots = [a.hybrid / "arch/arm64/boot/dts", a.hybrid / "bsp",
+             a.hybrid / "arch/arm64/boot/dts/vendor"]
+    sources = set()
+    for dts_root in roots:
+        if not dts_root.is_dir():
+            continue
+        for extension in ("*.dts", "*.dtsi"):
+            for source in dts_root.rglob(extension):
+                # Include A733/Zero3W files and DT includes providing sun60iw2.
+                if any(s in source.name.lower() for s in
+                       ("zero3w", "sun60iw2", "a733", "orangepi-4-pro")):
+                    sources.add(source)
+    candidates = sorted(sources)
     for path in candidates:
         rel = path.relative_to(a.hybrid)
         text = read(path)
@@ -137,6 +149,27 @@ def main():
                      flags=[s for s in SUSPECT if s in text],
                      root_compatibles=[line.strip() for line in text.splitlines()
                                        if "compatible" in line][:15]))
+    # Capture compiled DTB even when sources were imported elsewhere.
+    built_dtb = a.hybrid.parent / "stage/boot/sun60i-a733-orangepi-zero3w.dtb"
+    evidence["compiled_dtb"] = snapshot(built_dtb)
+    if built_dtb.is_file():
+        nodes = ["/", "/soc@3000000/sdmmc@4020000",
+                 "/soc@3000000/sdmmc@4021000",
+                 "/soc@3000000/sdmmc@4022000",
+                 "/soc@3000000/sdmmc@4023000"]
+        evidence["compiled_dtb"]["nodes"] = {}
+        for node in nodes:
+            props = {}
+            for prop in ("compatible", "status", "mmc-high-capacity-erase-size",
+                         "sunxi-dis-signal-vol-sw", "vmmc-supply"):
+                r = run("fdtget", "-t", "s", str(built_dtb), node, prop)
+                if r["rc"] == 0:
+                    props[prop] = r["output"].strip()
+                elif prop in ("mmc-high-capacity-erase-size", "sunxi-dis-signal-vol-sw"):
+                    pr = run("fdtget", "-p", str(built_dtb), node)
+                    if pr["rc"] == 0 and prop in pr["output"].splitlines():
+                        props[prop] = "<boolean present>"
+            evidence["compiled_dtb"]["nodes"][node] = props
     for path in sorted(a.repo.rglob("*.patch")):
         if ".git" not in path.parts:
             evidence["patches"].append(dict(path=str(path.relative_to(a.repo)),
@@ -170,6 +203,10 @@ def main():
     md += ["", "## DTS source candidates (not compiled DTB)", ""]
     for obj in evidence["device_trees"]:
         md.append(f"- {obj['path']} | upstream: {obj['counterpart']['status']} | flags: {', '.join(obj['flags'])}")
+    md += ["", "## Final compiled DTB", "",
+           f"- {evidence['compiled_dtb']['path']}: {'present' if evidence['compiled_dtb']['present'] else 'MISSING'}", ""]
+    for node, props in evidence["compiled_dtb"].get("nodes", {}).items():
+        md.append(f"- {node}: {props}")
     md += ["", "## Patch files found in this repo", ""]
     for obj in evidence["patches"]:
         md.append(f"- {obj['path']} SHA256 {obj['sha256']}")
