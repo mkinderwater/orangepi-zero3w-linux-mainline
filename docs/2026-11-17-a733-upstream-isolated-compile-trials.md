@@ -35,3 +35,20 @@ a733-clean-driver-build-v1/
 **Critical caution:** In the pinctrl track, the two 6.18-only adaptations (rename + preserved variant/full flags) are staged along with patches 2..7 and PF6. No `pinctrl-voltage-v3` is included. The presence of a safe source-only layout backport does not certify actual PF voltage switching.
 
 **Next after compilation:** source and DTB integration for UART/CCU/pinctrl, then upstream MMC0 and AXP regulators, with physical UART logs against the known HBI PID1 control. Do not flash a kernel at this point.
+
+## 2026-11-17: independent driver subtree compilation PASS
+
+Operator executed the revised `scripts/build-a733-clean-driver-tracks.py` with output at `/root/opi3w-m2-work/a733-clean-driver-build-v2`. The script reported:
+
+```text
+CC drivers/pinctrl/sunxi/pinctrl-sunxi.o
+CC drivers/pinctrl/sunxi/pinctrl-sun60i-a733.o
+AR drivers/pinctrl/sunxi/built-in.a
+PASS: both isolated driver subtree builds completed; no DTB/hardware testing
+```
+
+This is **source compile evidence** for two isolated source trees: one with the eight upstream CCU patches plus the upstream `SUNXI_CCU_M_DATA_WITH_MUX_GATE_FEAT` compatibility macro, one with the seven pinctrl patches and the PF6 correction plus strictly scoped Linux 6.18 compatibility adaptations. The untested GPIO voltage-auto patch was omitted.
+
+It is **not** an all-kernel link, combined integration, DTB schema validation, PMIC/MMC support, PF 1.8V switching proof or hardware boot. Neither the clean upstream baseline nor the existing 0.2.7 PID1 image was flashed.
+
+**Next gate:** merge only those validated upstream source changes into a *third* disposable source copy, enable both A733 Kconfig symbols, and build the entire ARM64 `Image`. Record exact effective config, linker errors and compiler toolchain; do not claim a Zero 3W bootable kernel until upstream-compatible A733 DTS, MMC0 and PMIC support are independently integrated.
