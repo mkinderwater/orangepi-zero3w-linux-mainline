@@ -60,19 +60,32 @@ def main():
         source = target.read_text()
         if "A733DIVDIAG" in source:
             raise ValueError("Source already instrumented")
-        # Locate the specific implementation, not a similar wrapper or call.
+        # Linux 6.18 uses "const struct ktermios *old", and separates
+        # the return type "void" and function name across two lines.
         impl = re.search(
-            r"(?m)^void\s*\n?serial8250_do_set_termios\s*\("
-            r"struct uart_port\s*\*port,\s*struct ktermios\s*\*termios,"
-            r"\s*struct ktermios\s*\*old\)\s*\{",
+            r"(?m)^void\s+serial8250_do_set_termios\s*\(\s*"
+            r"struct uart_port\s*\*port,\s*struct ktermios\s*\*termios,\s*"
+            r"(?:const\s+)?struct ktermios\s*\*old\s*\)\s*\{",
             source,
         )
         if impl is None:
-            raise ValueError("serial8250_do_set_termios signature differs; inspect source")
-        next_func = source.find("\nEXPORT_SYMBOL_GPL(serial8250_do_set_termios)", impl.end())
-        if next_func < 0:
-            raise ValueError("Cannot find end of termios function")
+            raise ValueError("Expected Linux 6.18 termios function not found")
+        exports = list(re.finditer(
+            r"(?m)^EXPORT_SYMBOL(?:_GPL)?\(serial8250_do_set_termios\);",
+            source[impl.end():],
+        ))
+        if len(exports) != 1:
+            raise ValueError(f"Expected one termios export, got {len(exports)}")
+        next_func = impl.end() + exports[0].start()
         section = source[impl.end():next_func]
+        # Older kernels call this 'cval'; newer ones may call it 'lcr'.
+        # Confirm a local declaration to avoid emitting invalid C.
+        if re.search(r"\b(?:unsigned char|u8)\s+cval\s*;", section):
+            lcr_variable = "cval"
+        elif re.search(r"\b(?:unsigned char|u8)\s+lcr\s*;", section):
+            lcr_variable = "lcr"
+        else:
+            raise ValueError("Cannot find local LCR variable")
         # The core chooses divisor before it disables interrupts and takes lock.
         pattern = re.compile(
             r"(?m)^(?P<indent>[ \t]*)baud\s*=\s*serial8250_get_baud_rate"
@@ -96,6 +109,8 @@ def main():
                          baud, port->uartclk, quot, frac, cval,
                          quot ? (unsigned long long)port->uartclk / (16ULL * quot) : 0ULL);
 '''
+        insert = insert.replace("baud, port->uartclk, quot, frac, cval,",
+                                f"baud, port->uartclk, quot, frac, {lcr_variable},")
         section = section[:match.end()] + insert + section[match.end():]
         source = source[:impl.end()] + section + source[next_func:]
         if source.count("A733DIVDIAG") != 1:
