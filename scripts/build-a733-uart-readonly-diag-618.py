@@ -8,6 +8,7 @@ Does not modify source, known-good image, firmware or DTB.
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -106,17 +107,30 @@ static void a733_uart_snapshot(struct uart_port *p, struct clk *clk,
 
 '''
         s = once(s, anchor, addition + anchor)
-        # Probe's clk is already prepared here; snapshot before resetting UART.
-        anchor = '''        if (!p->uartclk)
-                return dev_err_probe(dev, -EINVAL, "clock rate not defined\\n");'''
-        s = once(s, anchor, anchor + '\n\n        a733_uart_snapshot(p, data->clk, "pre-reset");')
-        # Source is prior try4 with the A733 quirk installed. This probe
-        # appears before dw8250_setup_port and port registration.
-        anchor = '''        if (!data->skip_autocfg)
-                dw8250_setup_port(p);'''
-        s = once(s, anchor, anchor + '\n\n        a733_uart_snapshot(p, data->clk, "post-setup");')
-        anchor = "        data->data.line = serial8250_register_8250_port(up);"
-        s = once(s, anchor, '        a733_uart_snapshot(p, data->clk, "pre-register");\n' + anchor)
+        # Source formatting varies between 6.18 trees; match complete
+        # statements rather than relying on spaces vs tabs.
+        def insert_after_stmt(source, pattern, snippet, label):
+            matches = list(re.finditer(pattern, source, re.M))
+            if len(matches) != 1:
+                raise RuntimeError(f"{label}: expected exactly one semantic anchor, found {len(matches)}")
+            pos = matches[0].end()
+            return source[:pos] + "\n" + snippet + source[pos:]
+
+        s = insert_after_stmt(
+            s,
+            r'^\s*if\s*\(!p->uartclk\)\s*\n\s*return\s+dev_err_probe\(\s*dev\s*,\s*-EINVAL\s*,\s*"clock rate not defined\\n"\s*\);',
+            '        a733_uart_snapshot(p, data->clk, "pre-reset");',
+            "pre-reset")
+        s = insert_after_stmt(
+            s,
+            r'^\s*if\s*\(!data->skip_autocfg\)\s*\n\s*dw8250_setup_port\(p\);',
+            '        a733_uart_snapshot(p, data->clk, "post-setup");',
+            "post-setup")
+        s = insert_after_stmt(
+            s,
+            r'^\s*data->data\.line\s*=\s*serial8250_register_8250_port\(up\);',
+            '        a733_uart_snapshot(p, data->clk, "pre-register");',
+            "pre-register")
         # Do not snapshot after register: serial8250_register can trigger
         # native console switch before it returns.
         target.write_text(s)
