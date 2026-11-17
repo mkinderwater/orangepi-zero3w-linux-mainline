@@ -80,3 +80,32 @@ grep -A 32 -B 3 'gpu@1800000' "$K/board/sun60iw2p1.dtsi" | head -40
 **Use the BSP's upstream-targeted Linux 6.18 GPU node as the design reference**, not the legacy hybrid `img,gpu` node. **Do not apply it yet.** Its PCK600 power-provider chain, clock semantics and GPU-supply difference are unverified on our build. Every power and frequency change must be an independent, reversible test.
 
 Related: [GPU clock and DCDC4 evidence](2026-11-17-gpu-clock-dcdc4-dtb-differential.md).
+
+## 2026-11-17: PCK600 provider binding mismatch confirmed
+
+Operator source audit has now located both the donor and legacy provider:
+
+| Field | 6.18 upstream-oriented donor | Legacy hybrid 0.2.7 |
+| --- | --- | --- |
+| provider node | `pck600: power-controller@7060000` | `pck: pck-600@7060000` with child `pd: power-controller` |
+| compatible | `allwinner,sun60i-a733-pck-600` | outer `allwinner,sun60iw2-pck`, `syscon`, `simple-mfd`; child `allwinner,sun60iw2-pck-600` |
+| register window | `<0x0 0x07060000 0x0 0xb000>` | same register window on outer node |
+| domain cells | 1 | 1 on child |
+| clock | `<&r_ccu CLK_R_PPU>` | same, named `pck` in child |
+| GPU TOP domain ID | `PD_GPU_TOP` (numeric ID must be confirmed against donor header) | `SUN60IW2_PCK_GPU_TOP=5` |
+| GPU CORE domain ID | `PD_GPU_CORE` (numeric ID must be confirmed against donor header) | `SUN60IW2_PCK_GPU_CORE=6`, legacy child definition commented out |
+| compatible supported by imported BSP driver | **No direct match shown** | `allwinner,sun60iw2-pck-600` supported |
+| config in hybrid build | n/a | `CONFIG_AW_PCK600_DOMAINS=n`, `CONFIG_SUN55I_PCK600=n`, `CONFIG_DRM_POWERVR=n`, `CONFIG_AW_PM_DOMAINS=n`, `CONFIG_AW_GPU_PM_DOMAINS=n` |
+
+Driver `linux/bsp/drivers/pm_domain/pck600_domains.c` contains explicit `sun60iw2_pck600_pm_domains[]` covering GPU TOP and GPU CORE, and matches `allwinner,sun60iw2-pck-600`. The upstream-tree `drivers/pmdomain/sunxi/sun55i-pck600.c` has only A523 coverage in the observed match table; it is **not** currently a proven substitute for sun60iw2.
+
+**Key integration hazard:** The donor's `allwinner,sun60i-a733-pck-600` compatible **does not match** the BSP driver that implements A733-specific domain operations. Do not wholesale swap the donor DTS and enable the driver. The donor and legacy providers also occupy the same physical register window, so both must never bind and drive the PCK600 hardware concurrently.
+
+**Caveat:** Although the legacy DTSI shows the GPU CORE child commented out, the driver has a GPU CORE domain entry; whether the driver requires explicit child definitions is determined by its provider registration/probe code, not the comment alone. Likewise, donor `PD_GPU_CORE` and `PD_GPU_TOP` numeric values must be verified from the donor's included header before asserting they equal legacy 6 and 5.
+
+### Next decision gate: integration is not yet safe
+
+1. Inspect `sunxi_pm_domain_probe()` and its DT child iteration/registration code (roughly `pck600_domains.c:376-485`), especially whether GPU CORE is published only when a `pd_gpu_core` child exists.
+2. Inspect donor `PD_GPU_CORE`/`PD_GPU_TOP` definitions, its provider binding and whether any `sun60i-a733-pck-600` driver matches elsewhere in the full kernel.
+3. Define one tested provider architecture. If BSP remains transitional, preserve its correct `sun60iw2` compatible while presenting the requisite GPU domain services; don't invent a compatible fallback without driver review.
+4. Keep GPU separate from MMC/PF boot fixes; do not adjust clocks or voltage. The 1008 MHz GPU OPP at default 960000 µV remains present in the hybrid's table.
