@@ -146,3 +146,40 @@ CI should:
 - Userspace package management is the *recommended architecture*, not an already deployed feature.
 
 **Cross-references:** [inclusive kernel source/DTS audit](2026-11-17-inclusive-618-source-and-dts-audit.md), [full boot-trial reconciliation](2026-11-17-full-history-after-uart-mmc-panic.md), [source pinning](2026-11-15-source-provenance.md), [MMC driver comparisons](2026-11-16-external-618-deep-audit.md). Debian kernel packaging: [Debian Administrator's Handbook, kernel installation](https://www.debian.org/doc/manuals/debian-handbook/sect.kernel-installation.en.html), [Debian kernel post-installation hooks](https://kernel-team.pages.debian.net/kernel-handbook/ch-update-hooks.html).
+
+## 11. Initial implementation landed: release preflight, no installer
+
+The first deployment artifact is [`scripts/release-kernel-manifest.py`](../scripts/release-kernel-manifest.py). It is intentionally **read-only with respect to all kernel inputs and installed media**. It takes an explicitly specified raw ARM64 Image, DTB, raw-gzip or legacy-uInitrd, matching named kernel module tree and outputs a new JSON manifest containing SHA256 digests, file sizes, Image header fields, DTB header size and module-tree digest. It refuses missing/malformed files and existing output filenames.
+
+This is **not yet** a Debian package builder, a correct `vermagic` checker, DT binding validator, signed manifest or bootloader selector. It does not run `apt`, mount, repartition, modify Boot0, change `boot.scr`, or flash any card. A kernel release label is operator input and **not inferred/verified from the Image**. Legacy-uInitrd magic/type is a minimal preliminary check, not full CRC/header validation. The module-tree check requires at least one module candidate and intentionally cannot validate a modules-all-builtin configuration without extension.
+
+Regression tests [`tests/test_release_kernel_manifest.py`](../tests/test_release_kernel_manifest.py) exercise normal output, overwrite refusal, invalid Image/DTB, missing modules, release mismatch and legacy initrd recognition. These tests are committed but **not executed on the operator's WSL** as part of this Git commit.
+
+On the WSL host:
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 -m unittest discover -s tests -p 'test_release_kernel_manifest.py' -v
+python3 scripts/release-kernel-manifest.py --help
+```
+
+Before creating a real artifact, identify the exact 0.2.7 matching modules directory and initramfs path. Do not guess a module directory from the source tree. An example invocation after verifying every path:
+
+```bash
+python3 scripts/release-kernel-manifest.py \
+  --image /root/opi3w-hybrid-build-0.2.7/stage/boot/Image \
+  --dtb /root/opi3w-hybrid-build-0.2.7/stage/boot/sun60i-a733-orangepi-zero3w.dtb \
+  --initrd /path/to/EXACT-VERIFIED-initrd \
+  --modules /path/to/EXACT-VERIFIED-modules/6.18.19-opi3w-hybrid-0.2.7 \
+  --kernel-release 6.18.19-opi3w-hybrid-0.2.7 \
+  --upstream-sha 4aea1dc4cad17cd146072e13b1fd404f32b8b3ef \
+  --bsp-sha 656a550c826787e7e72fae58ca793df9e0988ac8 \
+  --output /root/opi3w-m2-work/release-0.2.7-preflight.json
+```
+
+The placeholders deliberately prevent accidentally claiming a mismatched module/initrd pairing is valid.
+
+**Companion source audit:** `scripts/audit-618-integration-inventory.py` now discovers A733 DTS under imported BSP and inspects the compiled DTB. Operator's latest run reported `CAP2_COLLISIONS: 1`, `DTS_CANDIDATES: 10`, `PATCH_FILES: 3`. The counts demonstrate coverage improvements, **not** approval of the unreviewed per-file diffs. Review `integration-inventory.md` or the JSON's `full_core_comparison`, `bsp_comparison` and `device_trees` before drafting any cleaned source patch series.
+
+**Next after source diff review and tests:** build a Debian package/staged kernel-slot prototype on throwaway filesystems. Actual boot-selection integration must remain out of scope until UART manual recovery and bootcount/watchdog semantics are proven on this board.
