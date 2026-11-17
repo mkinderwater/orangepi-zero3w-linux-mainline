@@ -28,3 +28,24 @@ python3 scripts/check-a733-upstream-dts-v3.py \
 This fetches the v3 series using `b4`, checks the SoC patch's single expected file path and applies it in a fresh Linux source copy only. It does not apply the Cubie board DTS or alter the working UART Image. Report status `SOC_DTS_SOURCE_APPLIES_NO_DTB_BUILD` is **not** proof of DTB build or schema validation. If the source passes, separately test preprocessor, `dtc`, phandles and bindings against our exact 6.18 CCU/pinctrl/RTC/PMIC headers. Prepare a Zero 3W board-only DTS with proven 3.3 V properties, valid console routing, no speculative memory size or PF bank voltage switching.
 
 **Keep original 4,562,952-byte UART gate and hybrid PID1 control intact.**
+
+## Operator result: upstream A733 v3 SoC DTS source applied
+
+The operator ran `scripts/check-a733-upstream-dts-v3.py` against `/root/opi3w-m2-work/a733-clean-uart-gate-v1/linux`. The script fetched the exact v3 series, validated patch selection, and both `git apply --check` and actual `git apply` succeeded in an isolated source copy:
+
+```text
+A733_V3_SOC_DTS_APPLY_PASS: /root/opi3w-m2-work/a733-dts-v3-source-check-v1/linux/arch/arm64/boot/dts/allwinner/sun60i-a733.dtsi
+No board DTS, no dtc/schema validation and no hardware boot
+```
+
+Next, `scripts/compile-a733-soc-dts-v3.py` preprocesses the actual A733 SoC DTS in place **without altering the kernel tree**, by creating a synthetic non-bootable `/dts-v1/` root in a separate output directory. It uses the original Linux DTS include paths, then runs `dtc` and preserves warnings plus any errors in `report.json`. This checks syntax, include resolution, labels/phandles and basic DT validity. It cannot establish a valid Zero 3W board, runtime driver completeness, schemata or safe PMIC voltages.
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+python3 scripts/compile-a733-soc-dts-v3.py \
+ --source /root/opi3w-m2-work/a733-dts-v3-source-check-v1/linux \
+ --output /root/opi3w-m2-work/a733-dts-v3-dtc-check-v1
+```
+
+Preserve baseline `a2e34a97113b9fff7c64112d46e6f9e131bf2ebe13d9cb1734b4fea49803e311` and do not flash any synthetic DTB.
