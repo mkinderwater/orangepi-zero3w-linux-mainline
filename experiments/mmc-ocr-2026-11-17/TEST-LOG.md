@@ -21,3 +21,12 @@ Stored in conversation uploads named `Pasted text(20261117-161958).txt` and `Pas
 - All report upstream base commit `4aea1dc4c`; the two try9 trees contain numerous uncommitted board modifications, while the shared tree showed untracked `m2j/`.
 - In each candidate, `mmc_select_voltage` starts at `drivers/mmc/core/core.c:1120`, `mmc_of_parse(mmc)` occurs at `drivers/mmc/host/sunxi-mmc.c:1441`, and `mmc_add_host(mmc)` at line 1469.
 - Proposed first choice: `a733-try9-ramoops-v2/linux`, pending confirmation against the November 17 RAM-A compiled Image and actual source anchors. **No patch applied, no kernel built or tested yet.**
+
+## RAM-A candidate source verification (reported 2026-11-17)
+
+- Preferred tree: `/root/opi3w-m2-work/a733-try9-ramoops-v2/linux`.
+- Kernel `make kernelversion`: `6.18.19`; Git base `4aea1dc4c` with local modifications.
+- Matching output tree: `/root/opi3w-m2-work/a733-try9-ramoops-v2/obj` (`.config` timestamp 2026-11-17 09:52; `arch/arm64/boot/Image` timestamp 09:53).
+- RAM-A boot reported Linux `6.18.19+` built 2026-11-17 09:53:33 CST, strongly consistent with this output. Image hash equivalence not yet verified.
+- Exact MMC core: `mmc_select_voltage()` at line 1120; `ocr &= host->ocr_avail` before `if (!ocr)`; host calls `mmc_of_parse(mmc)` at line 1441, then `mmc_add_host(mmc)` at line 1469. Host logs initialized at the end of probe.
+- **Next action:** Copy tree and out-of-tree build config before applying diagnostic-only variant A. Verify patch anchors and compiler output; do not overwrite original `Image`.
