@@ -72,7 +72,7 @@ def main():
     if a.full_core:
         source = {str(x.relative_to(a.hybrid)): x for x in a.hybrid.rglob("*")
                   if x.is_file() and ".git" not in x.parts
-                  and "bsp" not in x.relative_to(a.hybrid).parts}
+                  and x.relative_to(a.hybrid).parts[0] != "bsp"}
         base = {str(x.relative_to(a.mainline)): x for x in a.mainline.rglob("*")
                 if x.is_file() and ".git" not in x.parts}
         changes = {"changed": [], "added": [], "removed": []}
