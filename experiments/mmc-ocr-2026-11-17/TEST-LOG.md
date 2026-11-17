@@ -14,3 +14,10 @@ Build OCR-A and capture actual card OCR, host OCR and overlap. Do not change har
 
 ## Original captures
 Stored in conversation uploads named `Pasted text(20261117-161958).txt` and `Pasted text(20261117-162334).txt`. These raw UART captures are not published here because long logs contain repeated output and unverified serial corruption. Preserve them as separate evidence if needed.
+
+## Source-tree audit (reported 2026-11-17)
+
+- MMC candidate source trees: `/root/opi3w-m2-work/a733-try9-ramoops/linux`, `/root/opi3w-m2-work/a733-try9-ramoops-v2/linux`, `/root/opi3w-m2-work/linux`.
+- All report upstream base commit `4aea1dc4c`; the two try9 trees contain numerous uncommitted board modifications, while the shared tree showed untracked `m2j/`.
+- In each candidate, `mmc_select_voltage` starts at `drivers/mmc/core/core.c:1120`, `mmc_of_parse(mmc)` occurs at `drivers/mmc/host/sunxi-mmc.c:1441`, and `mmc_add_host(mmc)` at line 1469.
+- Proposed first choice: `a733-try9-ramoops-v2/linux`, pending confirmation against the November 17 RAM-A compiled Image and actual source anchors. **No patch applied, no kernel built or tested yet.**
