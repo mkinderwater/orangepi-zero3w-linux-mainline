@@ -50,3 +50,26 @@ The tool extracts only mailbox files from the archive into a temporary directory
 **Gate:** If a patch does not apply, port or backport the precise upstream prerequisite into a separate experimental source branch. Do not paper over with `git apply --reject`, import all of the BSP, or merge the voltage-mode register write into the MMC test by default.
 
 The **first actual kernel tests** should be CCU-only and pinctrl-base-only as independent compile/integration variants, with separate serial logs and the immutable 0.2.7 PID1 baseline preserved. The PF voltage change needs explicit board-voltage safety review before hardware.
+
+## 2026-11-17: first real applicability results and 6.18 rename-only adaptation
+
+The operator ran the source-only scratch checker on pinned clean upstream. **CCU v7 passed all eight patches** sequentially. This establishes patch applicability, not kernel compilation or successful clock initialization. Pinctrl base **patch 1/7 failed** at `pinctrl-sunxi.c:1107` and `pinctrl-sunxi.h:90`; pinctrl voltage and PF6 follow-ups were correctly blocked. No source tree was altered.
+
+Review of the actual `pinctrl-base` mailbox confirms patch 1/7 is **only a rename** from `SUNXI_PINCTRL_NEW_REG_LAYOUT` to `SUNXI_PINCTRL_NCAT2_REG_LAYOUT`. Linux 6.18 retains the old macro but has different surrounding source context, explaining the immediate hunk failure. We have now added an **opt-in**, scratch-only semantic equivalent for this first patch in `scripts/check-a733-upstream-backport.py`. It strictly checks the old symbol exists in the five relevant files, rejects mixed symbols and changes only this token in the temporary scratch tree. It does **not** try to paper over patches 2-7 or touch any voltage registers.
+
+### Next WSL command
+
+```bash
+cd /root/orangepi-zero3w-linux-mainline
+git pull --ff-only
+
+python3 scripts/check-a733-upstream-backport.py \
+  --archive /root/opi3w-m2-work/a733-upstream-patches-v1.tar.gz \
+  --source /root/opi3w-hybrid-sources-0.1.0/linux \
+  --output /root/opi3w-m2-work/a733-upstream-check-v2 \
+  --adapt-pinctrl-rename
+
+cat /root/opi3w-m2-work/a733-upstream-check-v2/review.md
+```
+
+**Interpretation:** If the first pinctrl entry passes under `adaptation`, that is not the unmodified patch applying cleanly. It means the rename-only meaning was reproduced for the older source. Review the next failed patch and its exact context before changing any functional driver code. The voltage follow-up is still **not approved for hardware**, even if the scratch patch applies.
