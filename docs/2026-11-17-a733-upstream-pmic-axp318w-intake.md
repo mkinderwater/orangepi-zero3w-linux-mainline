@@ -121,3 +121,21 @@ bash scripts/audit-axp8191-axp318w-registers.sh \
 ```
 
 **Still prohibited:** forcing a DTB `compatible` alias or enabling/disabling MMC0 rails until actual ID probing and exact descriptor equivalence are separately confirmed.
+
+## 2026-11-17: vendor/upstream switch and CLDO5 enable bits corroborated
+
+From the operator's actual `axp8191-axp318w-register-audit-v1.txt` output:
+
+| Hardware function | Vendor AXP8191 | Upstream AXP318W | Finding |
+| --- | --- | --- | --- |
+| First DCDC1 switch | `DC1SW1`: `AXP8191_DCDC_CTL2=0x11`, `BIT(3)` | `SWOUT1`: `AXP318_DCDC_OUTPUT_CONTROL2=0x11`, `BIT(3)` | Register/bit match |
+| Second DCDC1 switch | `DC1SW2`: `AXP8191_DCDC_CTL2=0x11`, `BIT(4)` | `SWOUT2`: `AXP318_DCDC_OUTPUT_CONTROL2=0x11`, `BIT(4)` | **Register/bit match** |
+| CLDO5 voltage selector | `AXP8191_CLDO5OUT_VOL=0x33`, `GENMASK(4,0)` | `AXP318_CLDO5_CONTROL=0x33`, LDO selector | Register match; check complete selector/mask semantics |
+| CLDO5 enable | `AXP8191_LDO_POWER_ON_OFF_CTL2=0x21`, `BIT(7)` | `AXP318_LDO_OUTPUT_CONTROL2=0x21`, `BIT(7)` | **Register/bit match** |
+| CLDO5 nominal range | `500..3400 mV` in 100 mV increments | AXP318W v8 CLDO5 nominal range same | Nominal compatibility, not rail measurement |
+
+The original vendor `AXP_DESC_SW(... "dc1sw2", "swin", ...)` declares upstream supply `swin`; upstream `AXP_DESC_SW(... "swout2", NULL, ...)` does not declare a parent supply. **Do not silently erase the power topology:** identify whether the board's `swin-supply` is DCDC1, how the upstream regulator model handles this, and the precise dependence of MMC0's `vmmc-supply` on this switch.
+
+These matches establish register-operation equivalence for the two relevant controls, **not** full chip identity or safe 1.8 V transition. The vendor header defines `AXP8191_IC_TYPE=0x03`, `AXP8191_CHIP_ID=0x0e`, `AXP8191_CHIP_VER=0x0f`; those are register locations, not a verified live chip ID. Upstream MFD matches `x-powers,axp318w`, not the vendor `x-powers,axp8191`. Do **not** add a compatible alias until the ID and init/IRQ/regmap behavior agree.
+
+**Next:** inspect vendor MFD `axp2101.c` and header around chip ID, and upstream `axp20x.c`, `axp20x-i2c.c`, `axp20x.h` for actual chip detection, read/write ranges and regulator output control. Use read-only source inspection first. No device access, PMIC writes, boot image or voltage changes.
