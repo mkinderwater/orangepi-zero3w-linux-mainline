@@ -65,13 +65,17 @@ def main():
         shutil.copy2(a.config.resolve(),obj/".config")
         c=tree/"scripts/config"
         if not c.is_file():raise RuntimeError("Linux scripts/config missing")
-        run(c,"--file",obj/".config","--enable","PSTORE","--enable","PSTORE_RAM",
+        # Linux 6.18 fs/Kconfig sources fs/pstore/Kconfig only when
+        # CONFIG_MISC_FILESYSTEMS is enabled. Without this, olddefconfig
+        # silently drops every requested PSTORE option.
+        run(c,"--file",obj/".config","--enable","MISC_FILESYSTEMS",
+            "--enable","PSTORE","--enable","PSTORE_RAM",
             "--enable","PSTORE_CONSOLE","--enable","PSTORE_PMSG",
             "--disable","PSTORE_COMPRESS")
         run("make","-C",tree,"O="+str(obj),"ARCH=arm64",
             "CROSS_COMPILE=aarch64-linux-gnu-","olddefconfig")
         cfg=(obj/".config").read_text()
-        for flag in ("CONFIG_PSTORE=y","CONFIG_PSTORE_RAM=y","CONFIG_PSTORE_CONSOLE=y","CONFIG_PSTORE_PMSG=y"):
+        for flag in ("CONFIG_MISC_FILESYSTEMS=y","CONFIG_PSTORE=y","CONFIG_PSTORE_RAM=y","CONFIG_PSTORE_CONSOLE=y","CONFIG_PSTORE_PMSG=y"):
             if flag not in cfg:raise RuntimeError("Pstore setting missing after olddefconfig: "+flag)
         run("make","-C",tree,"O="+str(obj),"ARCH=arm64",
             "CROSS_COMPILE=aarch64-linux-gnu-","-j"+str(a.jobs),"Image")
