@@ -101,6 +101,7 @@ def main():
         "Stage vendor source: "+str(source)+"\n"
         "Architecture: arm64\n"+"Cross compiler: "+gcc+"\n"+
         "Isolated vendor macro: CONFIG_AW_IOMMU_V2=1 (KCFLAGS during object builds)\n"+
+        "Isolated include path: "+str(target)+"\n"+
         "Validated configuration: "+str(config)+"\n"
         "Linux .config SHA256: "+sha(config)+"\n"+
         "\n".join(name+" SHA256 "+sha(source/name) for name in FILES)+"\n")
@@ -140,11 +141,12 @@ def main():
     # Explicit single-object targets bypass missing parent Makefile wiring.
     # Merely building the directory yielded a false PASS in Stage 1.
     objects=("sunxi-iommu-v2.o","sunxi-iommu-common.o","sunxi-iommu-pgtable.o")
+    vendor_include="-I"+str(target)
     status=0
     for obj in objects:
         target_obj="drivers/iommu/aw-v20/"+obj
         rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=1",
-                "KCFLAGS=-DCONFIG_AW_IOMMU_V2=1",target_obj],log,env)
+                "KCFLAGS=-DCONFIG_AW_IOMMU_V2=1 "+vendor_include,target_obj],log,env)
         # Evidence gate: the compiler command must actually include our V2 selector.
         # A manifest declaration or directory Makefile by itself proved insufficient.
         build_text=log.read_text(errors="replace")
