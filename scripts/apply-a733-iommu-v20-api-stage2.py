@@ -13,6 +13,16 @@ def one(s,old,new,label):
     n=s.count(old)
     if n!=1:raise ValueError(f"{label}: expected exactly one anchor, got {n}")
     return s.replace(old,new,1)
+def scoped_one(s, start, stop, old, new, label):
+    """Replace exactly one anchor inside a uniquely bounded source section."""
+    if s.count(start)!=1:
+        raise ValueError(f"{label}: expected one start marker, got {s.count(start)}")
+    head, tail=s.split(start,1)
+    if stop not in tail:
+        raise ValueError(f"{label}: missing end marker")
+    section, rest=tail.split(stop,1)
+    section=one(section,old,new,label)
+    return head+start+section+stop+rest
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--source",type=Path,default=DEFAULT)
@@ -37,9 +47,10 @@ def main():
         "static int sunxi_iommu_map(struct iommu_domain *domain, unsigned long iova,\n\t\t\t   phys_addr_t paddr, size_t size, int prot, gfp_t gfp)",
         "static int sunxi_iommu_map(struct iommu_domain *domain, unsigned long iova,\n\t\t\t   phys_addr_t paddr, size_t size, size_t count,\n\t\t\t   int prot, gfp_t gfp, size_t *mapped)","map signature")
     # Compile-only adapter. Validate multiplication before any DMA map.
-    s=one(s,
+    s=scoped_one(s,
+        "static int sunxi_iommu_map(", "static size_t sunxi_iommu_unmap(",
         "\tWARN_ON(sunxi_domain->pgtable == NULL);\n\tiova_start = iova & IOMMU_PT_MASK;",
-        "\tif (!size || !count || size > SIZE_MAX / count)\n\t\treturn -EINVAL;\n\t* mapped = 0;\n\tsize *= count;\n\tWARN_ON(sunxi_domain->pgtable == NULL);\n\tiova_start = iova & IOMMU_PT_MASK;",
+        "\tif (!size || !count || size > SIZE_MAX / count)\n\t\treturn -EINVAL;\n\t*mapped = 0;\n\tsize *= count;\n\tWARN_ON(sunxi_domain->pgtable == NULL);\n\tiova_start = iova & IOMMU_PT_MASK;",
         "map size")
     s=one(s,
         "\tsunxi_pgtable_prepare_l2_tables(sunxi_domain->pgtable,\n\t\t\t\t\tiova_start, iova_end, paddr, prot);\n\tspin_unlock_irqrestore(&sunxi_domain->dt_lock, flags);\n\n\treturn 0;",
@@ -62,11 +73,15 @@ def main():
     s=one(s,
         "static int sunxi_iommu_of_xlate(struct device *dev,\n\t\t\t\tstruct of_phandle_args *args)",
         "static int sunxi_iommu_of_xlate(struct device *dev,\n\t\t\t\tconst struct of_phandle_args *args)","of_xlate const")
-    s=one(s,
+    # Both conditional implementations contain these fields. Only change the
+    # SEPERATE_DOMAIN_API path selected by the exact vendor header.
+    s=scoped_one(s,
+        "#ifdef SEPERATE_DOMAIN_API", "#else",
         "\t.pgsize_bitmap = SZ_4K | SZ_16K | SZ_64K | SZ_256K | SZ_1M | SZ_4M |\n\t\t\t SZ_16M,",
-        "",
-        "obsolete ops bitmap")
-    s=one(s,"\t.domain_alloc = sunxi_iommu_domain_alloc,",
+        "", "obsolete ops bitmap")
+    s=scoped_one(s,
+        "#ifdef SEPERATE_DOMAIN_API", "#else",
+        "\t.domain_alloc = sunxi_iommu_domain_alloc,",
         "\t.domain_alloc_paging = sunxi_iommu_domain_alloc_paging,","alloc ops")
     s=one(s,"\t.map = sunxi_iommu_map,","\t.map_pages = sunxi_iommu_map,","map ops")
     s=one(s,"\t.unmap = sunxi_iommu_unmap,","\t.unmap_pages = sunxi_iommu_unmap,","unmap ops")
