@@ -57,7 +57,9 @@ def parse(path):
             continue
         m = PROP.match(line)
         if m:
-            nodepath = '/' + '/'.join(stack)
+            nodepath = ('/' + '/'.join(stack)).replace('//', '/')
+            if nodepath not in nodes:
+                raise ValueError(f'DTS node path missing while parsing {path}: {nodepath}')
             nodes[nodepath][m.group(1)] = m.group(2)
     return nodes
 def phandles(nodes):
