@@ -145,3 +145,14 @@ sh: can't access tty; job control turned off
 ## Interactive UART TX/RX proved (operator hardware test)
 
 At the RAM-B `~ #` BusyBox ash prompt, typed `echo "RAM-B UART RX/TX PASS"` executed and printed exactly `RAM-B UART RX/TX PASS`. Typed `uname -a` executed and returned `Linux (none) 6.18.19+ #1 SMP Tue Nov 17 18:54:09 CST 2026 aarch64 GNU/Linux`. Thus native serial input and output both work at the shell level. `cat /proc/uptime` returned `sh: cat: not found`; do not mistake this for proof about kernel uptime because the `cat` applet is not found and the earlier `/proc` mount failed with `No such device`. Stability time and reset-free endurance remain untested.
+
+## Hardware interactive uptime observation
+
+Operator showed BusyBox ash shell on the actual Orange Pi, typed commands, interrupted a sleep with Ctrl+C, then obtained:
+
+```text
+/bin/busybox uptime
+00:04:36 up 4 min, 0 users, load average: 0.00, 0.00, 0.00
+```
+
+BusyBox 1.37.0 applet list contains `cat`, `uptime`, `sleep`, `cttyhack`, `mount`, `stty`. `cat` is not linked in the shell's PATH, but can be invoked as `/bin/busybox cat`. Output indicates a live shell at 4m36s reported uptime with no reset shown during that observation. The 60-second sleep command was interrupted, **so it is not a completed 60-second test**. The proc mount error and lack of controlling tty remain unresolved; diagnose kernel `CONFIG_PROC_FS` and initramfs setup separately. This is a **working userspace checkpoint**, not yet LKG endurance certification.
