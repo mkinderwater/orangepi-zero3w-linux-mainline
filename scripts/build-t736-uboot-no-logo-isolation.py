@@ -89,9 +89,9 @@ def main():
             "gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabi" in toolchain_block,
             "Vendor bundled toolchain block could not be isolated")
     # Keep configuration and architecture logic; only eliminate forced extraction.
-    m=m[:begin]+("# Isolation build: no bundled-toolchain extraction.\n"
+    m=(m[:begin]+("# Isolation build: no bundled-toolchain extraction.\n"
                   "# CROSS_COMPILE must be supplied as a make command-line option.\n")
-      +m[selector:]
+      +m[selector:])
     makefile.write_text(m)
     changed=set(run(["git","diff","--name-only"],cwd=a.output).splitlines())
     require(changed=={str(BOARD_FILE),"Makefile"},
