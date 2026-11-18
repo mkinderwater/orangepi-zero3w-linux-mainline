@@ -111,3 +111,15 @@ This **25 MHz setting is a conservative initial card-test value**, not the 150 M
 `no-sdio` and `no-mmc` describe the removable SD memory-card slot protocol; **do not** apply `no-sdio` to Wi-Fi's MMC1. `&pio 5 6` addresses **PF6** and `GPIO_ACTIVE_LOW` is active-low card detection. Confirm this exact board routing and phandle before enabling; DDR/MMC0 pinmux group is PF0-PF5, separate from PF6. A November 2026 upstream Linux pinctrl correction describes PF6 interrupt/card-detect failures caused by `irq_read_needs_mux` on another A733 board: https://lists.openwall.net/linux-kernel/2026/11/10/2385 . Audit the A733 pinctrl driver's IRQ mux handling if removable-card events fail. Test 25 MHz initialization first and then negotiate higher card modes, measuring `actual clock` and signal voltage rather than assuming `max-frequency=150000000` means the card is running at 150 MHz.
 
 Until regulator wiring is correct, keep both staged clock DTBs disabled; they are intermediate artifacts and not boot-ready storage configs.
+
+## MMC0 enablement preparation
+
+New `scripts/audit-mmc0-board-wiring.sh` checks the 26 MHz corrected/150 MHz capped candidate DTB's MMC0 pinctrl, card-detect and power properties; it optionally compares an independently identified original vendor Zero 3W DTB. This is a **read-only** step: no MMC0 activation or MMC clock programming. To run:
+
+```bash
+bash scripts/audit-mmc0-board-wiring.sh
+# With positively identified vendor board DTB:
+# VENDOR_DTB=/absolute/path/to/original-zero3w.dtb bash scripts/audit-mmc0-board-wiring.sh
+```
+
+Result: `/root/opi3w-m2-work/linux-618-full-integration/mmc0-audit/summary.txt`. Do not invent AXP8191 supply phandles from other boards. Capture phandle target definitions and `PF6` routing first, then implement MMC0 enablement with `bus-width=4`, `no-sdio`, `no-mmc`, active-low card detect, and verified VMMC/VQMMC. The host maximum is 150 MHz; identification is negotiated at a lower clock, so we do not need to force a permanent 25 MHz ceiling.
