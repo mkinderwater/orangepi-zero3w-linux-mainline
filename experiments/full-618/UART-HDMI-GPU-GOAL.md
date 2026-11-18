@@ -35,3 +35,22 @@ Verify both paths exist first. Audit writes `vendor-parity/summary.txt` and full
 - Do not consider a PowerVR DRM device equivalent to working HDMI output. Both need tested.
 - Do not replace vendor firmware as part of this kernel-only parity effort.
 - Do not promote builds solely on compilation.
+
+## Initial vendor config comparison
+
+The operator ran the two-version comparison and reported:
+
+- 1,523 vendor-enabled options missing or renamed in Linux 6.18
+- 192 Linux 6.18 options enabled but not in the vendor config
+- 2,848 other Kconfig value/version differences
+- 4,563 total differences
+
+These are symbol differences and cannot be equated to missing driver functions. The next step is the targeted `scripts/report-vendor-hardware-parity.py` report, which groups mismatches by hardware domain and prints UART/display/DRM vendor-enabled gap candidates first. **Do not enable all missing vendor options automatically.** The comparison keeps both `y` and `m` meaningful and records all selected hardware rows for manual mapping; it does not modify configurations or hardware.
+
+```bash
+python3 scripts/report-vendor-hardware-parity.py \
+ /root/opi3w-vendor-6698-work/obj-control/.config \
+ /root/opi3w-m2-work/linux-618-full-integration/artifacts/kernel.config
+```
+
+Report: `/root/opi3w-m2-work/linux-618-full-integration/vendor-parity/hardware-focus/summary.txt` and `hardware-differences.tsv`.
