@@ -163,3 +163,11 @@ python3 scripts/apply-a733-iommu-v20-api-stage2.py \
 ```
 
 If an anchor differs the script **stops without generating output**. Review the emitted .patch rather than applying changes blindly; compile work requires a subsequent explicit copy into a disposable staged tree. No firmware or boot image is part of this step.
+
+## Stage 2 actual compile and final callback signature
+
+User's `iommu-v20-stage2-results.txt` shows compilation reached line 2246. The *only fatal diagnostic* was the Linux 6.18 `platform_driver.remove` type mismatch: the vendor's `int (*)(struct platform_device *)` does not match required `void (*)(struct platform_device *)`. There were 13 missing-prototype warnings; no other fatal errors in the v2 object. This is a **source-only compile diagnostic**, not a runtime pass.
+
+Compared with pinned public Allwinner BSP `sunxi-iommu-v2.c`, which already declares `static void sunxi_iommu_remove(struct platform_device *)`. The exact vendor source uses an int callback and can require preserving old cleanup code. Added `scripts/apply-a733-iommu-v20-remove-stage3.py` (latest fix `7688147`), a fail-closed separate-output transformer: verifies Stage 2 markers and unique remove function/driver registration, adds a void callback wrapper calling the unmodified vendor cleanup routine, changes only the driver registration, emits a unified diff. It does not modify the kernel, original source, or firmware.
+
+Do not claim compilation until the generated Stage 3 source is actually compiled. Compilation does not establish ownership, teardown, DMA safety or usable display output. Once Stage 3 object is built, explicitly compile remaining `sunxi-iommu-common.o` and `sunxi-iommu-pgtable.o`, inspect undefined cross-object references, then tackle domain/stream semantics.
