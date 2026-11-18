@@ -49,3 +49,34 @@ Upload `diagnostics.txt` for source/API remediation. Do not attempt to boot any 
 3. Address global-domain ownership and hardware-init failure propagation before allowing any device to attach. A compile PASS is insufficient.
 4. Validate provider DT clocks/resets, IRQs, per-master streams and page-table physical addresses.
 5. Preserve existing HDMI-at-boot diagnostics and known-good PCK600 control baseline. No firmware flashing or mainline image promotion.
+
+## Failed compiler gate discovered from operator `build.log`
+
+The first stage script's Kbuild call returned **0 without compiling any IOMMU objects**: `Nothing to be done for 'drivers/iommu/aw-v20/'`. Worse, Kbuild's default `ARCH=x86` produced x86 kernel headers, so that report was not an ARM64 compatibility test. It is an **invalid PASS**, not a valid driver build.
+
+Corrected by commit `1adf58d`:
+- Requires matching Stage4 ARM64 config and installed `aarch64-linux-gnu-gcc` (or explicit `--cross-compile` prefix).
+- Sets `ARCH=arm64` and `CROSS_COMPILE` for every Kbuild call.
+- Invokes explicit object targets rather than an unreferenced directory target.
+- Requires that **all three** .o files exist and that `readelf -h` reports `AArch64`; only then records a compile PASS.
+- Preserves old diagnostic path; use a fresh output directory.
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/stage-a733-iommu-v20-compile.py \
+  --out /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-arm64
+```
+
+Collect a short diagnostic file even if `make` fails, without claiming success:
+
+```sh
+D=/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-arm64
+{
+  cat "$D/manifest.txt"
+  grep -nE 'fatal error:|error:|warning:|No rule to make target|Stop\.' "$D/build.log" | head -100 || true
+  tail -60 "$D/build.log"
+} > "$D/diagnostics.txt"
+```
+
+**Status:** corrected source-only ARM64 diagnostic script committed, awaiting operator execution. No target-board validation.
