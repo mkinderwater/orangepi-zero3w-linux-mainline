@@ -6,7 +6,7 @@ set -euo pipefail
 BASE="${BASE:-/root/opi3w-m2-work/a733-try9-ramoops-v2/linux}"
 VENDOR="${VENDOR:-/root/opi3w-vendor-6698-work/kernel}"
 CONFIG="${CONFIG:-/root/opi3w-m2-work/linux-618-full-integration/artifacts/kernel.config}"
-OUT="${OUT:-/root/opi3w-m2-work/linux-618-hdmi-stage2}"
+OUT="${OUT:-/root/opi3w-m2-work/linux-618-hdmi-stage3}"
 JOBS="${JOBS:-4}"
 
 for exe in rsync make aarch64-linux-gnu-gcc sha256sum python3 grep; do
