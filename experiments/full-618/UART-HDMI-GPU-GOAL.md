@@ -130,3 +130,11 @@ PM: genpd: Disabling unused power domains
 `/sys/bus/platform/drivers/sunxi-pck-600/` contains a bound symlink to `7060000.pck-600:power-controller`. BusyBox uptime output: **13m23s** with no reset observed. Note the parent `7060000.pck-600` probe diagnostic `19` is not a negative error code; verify context only if it becomes relevant. Pin controllers initially deferred (`-517`), later initialized.
 
 **Milestone reached:** PCK-600 genpd provider and all three declared A733 display domains register successfully on hardware. This does not demonstrate domain power transitions, display scanout, IOMMU success, HDMI electrical signaling or PowerVR acceleration. The current probe DTB intentionally lacks DE, TCON and HDMI graph nodes. Next controlled experiment: check reproducible UART with HDMI physically connected on the exact same image; if stable, integrate the vendor display graph with translated A733 CCU reset/clock bindings and validate provider dependencies before building another DTB. Retain current kernel and verified power-domain setup.
+
+## 2026-11-18 hardware hotplug result: running RAM-shell survives HDMI changes
+
+Operator independently confirmed the same Linux 6.18 RAM-shell remains responsive when an HDMI cable is **connected or removed after Linux has already booted**, including BusyBox uptime checks after connection. This is a separate positive observation from the existing evidence that starting the kernel with HDMI already connected produces no observed UART output after BL31.
+
+**Interpretation:** post-boot HDMI hotplug does not by itself stop the RAM-shell or UART in the tested configuration. Boot-time behavior with HDMI present is the focus; do not claim hotplug lockup. This observation does not distinguish a genuine early Linux hang from UART silence on an otherwise running kernel. The test DTB still omits DE/TCON/HDMI nodes, so it is not a display scanout test.
+
+**Next isolation:** compare cold boots with cable connected/disconnected while keeping all binaries fixed, and investigate vendor U-Boot's HDMI display setup (clock parent, splash/scanout, FDT mutations) versus kernel entry. Preserve the verified PCK-600 probe, RAM-shell initramfs and 26MHz clock baseline. Do not disable HDMI at the hardware or change firmware based only on this correlation.
