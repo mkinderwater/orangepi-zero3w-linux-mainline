@@ -41,18 +41,27 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
     cleanup_one
     continue
   fi
-  echo "=== /boot files (names and sizes) ==="
-  find "$MNT/boot" -maxdepth 4 -type f -printf '%P %s bytes\n' 2>/dev/null | sed -n '1,110p'
-  echo "=== candidate boot scripts ==="
-  while IFS= read -r -d '' script; do
-    echo "SCRIPT: ${script#"$MNT"}"
-    echo "SHA256: $(sha256sum "$script")"
-    dumpimage -T script -p 0 -o /dev/stdout "$script" 2>/dev/null |
-      grep -E -i 'mainline|booti|bootm|fdt|dtb|Image|initrd|ramdisk|ext4load|load |source|console|bootargs' | sed -n '1,70p' || :
-  done < <(find "$MNT/boot" -type f \( -name '*.scr' -o -name 'boot.scr' \) -print0 2>/dev/null)
-  echo "=== RAM-B known DTB/kernel/initrd hashes if present ==="
-  find "$MNT/boot" -type f \( -name 'Image*' -o -name '*ram-b*.dtb' -o -name '*diagnostic*initrd*' \) -print0 2>/dev/null |
-    xargs -0 -r sha256sum | sed -n '1,35p'
+  echo "=== root filesystem entries ==="
+  ls -la "$MNT" | sed -n '1,45p' || :
+  echo "=== boot directory probe ==="
+  if [[ ! -d "$MNT/boot" ]]; then
+    echo "NO /boot directory in ext4 root; image may use a separate partition or empty root."
+    echo "=== top-level regular files ==="
+    find "$MNT" -maxdepth 2 -type f -printf '%P %s bytes\\n' 2>/dev/null | sed -n '1,90p' || :
+  else
+    echo "=== /boot files (names and sizes) ==="
+    find "$MNT/boot" -maxdepth 5 -type f -printf '%P %s bytes\\n' 2>/dev/null | sed -n '1,110p' || :
+    echo "=== candidate boot scripts ==="
+    while IFS= read -r -d '' script; do
+      echo "SCRIPT: ${script#"$MNT"}"
+      sha256sum "$script" || :
+      dumpimage -T script -p 0 -o /dev/stdout "$script" 2>/dev/null |
+        grep -E -i 'mainline|booti|bootm|fdt|dtb|Image|initrd|ramdisk|ext4load|load |source|console|bootargs' | sed -n '1,70p' || :
+    done < <(find "$MNT/boot" -type f \( -name '*.scr' -o -name 'boot.scr' \) -print0 2>/dev/null)
+    echo "=== RAM-B kernel/DTB/initramfs hashes ==="
+    find "$MNT/boot" -type f \( -name 'Image*' -o -name '*ram-b*.dtb' -o -name '*diagnostic*initrd*' \) -print0 2>/dev/null |
+      xargs -0 -r sha256sum | sed -n '1,35p' || :
+  fi
   cleanup_one
 done
 echo
