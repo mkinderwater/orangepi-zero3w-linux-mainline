@@ -6,7 +6,7 @@ set -euo pipefail
 BASE="${BASE:-/root/opi3w-m2-work/a733-try9-ramoops-v2/linux}"
 VENDOR="${VENDOR:-/root/opi3w-vendor-6698-work/kernel}"
 CONFIG="${CONFIG:-/root/opi3w-m2-work/linux-618-full-integration/artifacts/kernel.config}"
-OUT="${OUT:-/root/opi3w-m2-work/linux-618-hdmi-stage3}"
+OUT="${OUT:-/root/opi3w-m2-work/linux-618-hdmi-stage4}"
 JOBS="${JOBS:-4}"
 
 for exe in rsync make aarch64-linux-gnu-gcc sha256sum python3 grep; do
@@ -24,6 +24,35 @@ rsync -a --exclude='.git' --exclude='*.o' --exclude='*.ko' \
 SRC="$OUT/linux"
 # Only vendor DRM implementation, not the entire vendor source/BSP.
 rsync -a "$VENDOR/bsp/drivers/drm/" "$SRC/drivers/gpu/drm/sunxi_vendor/"
+# Vendor display ABI headers live outside the DRM source directory.
+# Import only headers actually needed for this display implementation.
+for header in sunxi_drm.h; do
+  candidate="$VENDOR/include/video/$header"
+  [[ -f "$candidate" ]] || { echo "Missing vendor header: $candidate" >&2; exit 1; }
+  mkdir -p "$SRC/include/video"
+  if [[ -e "$SRC/include/video/$header" ]]; then
+    cmp -s "$candidate" "$SRC/include/video/$header" || {
+      echo "STOP: existing 6.18 header differs: $header" >&2; exit 1;
+    }
+  else
+    cp "$candidate" "$SRC/include/video/$header"
+  fi
+done
+# Vendor Makefile uses its original bsp/drivers/drm/ absolute source path
+# for header search. Relocate those paths to the new DRM subtree.
+python3 - "$SRC/drivers/gpu/drm/sunxi_vendor" <<'PY'
+from pathlib import Path
+import sys
+root=Path(sys.argv[1])
+count=0
+for mf in root.rglob("Makefile"):
+    old=mf.read_text()
+    new=old.replace('bsp/drivers/drm/', 'drivers/gpu/drm/sunxi_vendor/')
+    if new != old:
+        mf.write_text(new)
+        count+=1
+print(f"Relocated include/Makefile paths: {count}")
+PY
 sha256sum "$VENDOR/bsp/drivers/drm/Kconfig" "$VENDOR/bsp/drivers/drm/Makefile" \
   > "$OUT/vendor-drm-hashes.txt"
 python3 - "$SRC" <<'PY'
