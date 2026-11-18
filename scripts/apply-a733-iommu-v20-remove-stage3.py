@@ -21,8 +21,8 @@ def main():
                    ".unmap_pages = sunxi_iommu_unmap,"]:
         if s.count(marker)!=1:sys.exit("STOP: Stage 2 API marker not unique: "+marker)
     signature="static int sunxi_iommu_remove(struct platform_device *pdev)"
-    remove_matches=list(re.finditer(r"\\.remove\\s*=\\s*sunxi_iommu_remove\\b",s))
-    driver_matches=list(re.finditer(r"static\\s+struct\\s+platform_driver\\s+sunxi_iommu_driver\\b",s))
+    remove_matches=list(re.finditer(r"\.remove\s*=\s*sunxi_iommu_remove\b",s))
+    driver_matches=list(re.finditer(r"static\s+struct\s+platform_driver\s+sunxi_iommu_driver\b",s))
     if s.count(signature)!=1 or len(remove_matches)!=1 or len(driver_matches)!=1:
         sys.exit("STOP: remove function, registration or driver definition not unique")
     if s.index(signature)>driver_matches[0].start():
@@ -41,8 +41,8 @@ def main():
     # There must be exactly one registration reference.
     pos=driver_matches[0].start()
     s=s[:pos]+wrapper+s[pos:]
-    s,n=re.subn(r"(\\.remove\\s*=\\s*)sunxi_iommu_remove\\b",
-                r"\\1sunxi_iommu_remove_618",s,count=1)
+    s,n=re.subn(r"(\.remove\s*=\s*)sunxi_iommu_remove\b",
+                r"\1sunxi_iommu_remove_618",s,count=1)
     if n!=1 or s.count(wrapper)!=1:
         sys.exit("STOP: failed to apply unique remove adapter")
     x.out.parent.mkdir(parents=True,exist_ok=True)
