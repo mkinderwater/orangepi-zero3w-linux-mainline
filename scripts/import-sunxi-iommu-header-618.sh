@@ -10,8 +10,10 @@ TARGET="$DRM/sunxi-iommu.h"
 [[ -d "$DRM" && -d "$ROOT/obj" && -d "$VENDOR" ]] || {
   echo "Missing staged DRM, build objects, or vendor source" >&2; exit 1;
 }
-grep -q '#include "sunxi-iommu.h"' "$DRM/sunxi_drm_debug.c" || {
-  echo "STOP: expected direct include not present" >&2; exit 1;
+grep -Eq '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"]sunxi-iommu[.]h[>"]' "$DRM/sunxi_drm_debug.c" || {
+  echo "STOP: sunxi-iommu.h include not found in expected source; actual includes:" >&2
+  grep -n -E 'iommu|^[[:space:]]*#[[:space:]]*include' "$DRM/sunxi_drm_debug.c" | head -45 >&2 || :
+  exit 1
 }
 # No guessing at header contents. Select a single distinct vendor file and
 # fail if conflicting versions exist in different vendor directories.
@@ -33,6 +35,15 @@ if not target.exists():
     target.write_bytes(data)
 print('Imported original header from:', found[0])
 PY
+# An angle-bracket include does not search the current C file directory.
+# Make the imported vendor header discoverable without replacing mainline IOMMU headers.
+if grep -Eq '^[[:space:]]*#[[:space:]]*include[[:space:]]*<sunxi-iommu[.]h>' "$DRM/sunxi_drm_debug.c"; then
+  MK="$DRM/Makefile"
+  FLAG='ccflags-y += -I$(src)'
+  if ! grep -Fqx "$FLAG" "$MK"; then
+    printf '\\n%s\\n' "$FLAG" >> "$MK"
+  fi
+fi
 LOG="$ROOT/build-iommu-header-618.log"
 echo "Incremental compile; log: $LOG"
 if ! make -C "$SRC" O="$ROOT/obj" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
