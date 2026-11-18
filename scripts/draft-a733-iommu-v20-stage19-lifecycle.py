@@ -214,7 +214,18 @@ err_enable:
 '''
     if "sunxi_pgtable_free_pte_cache(iopte_cache);" not in old_body:
         p.error("Unexpected Stage15 remove body")
-    rem = rem[:brace] + replacement.lstrip("\n")
+    # Replace only the remove function. Preserve adjacent PM callbacks,
+    # the DT match table, module entry points and the Linux 6.18 adapter.
+    closing = rem.find("\n}\n", brace)
+    if closing < 0:
+        p.error("Cannot identify remove function closing brace")
+    preserved = rem[closing + len("\n}\n"):]
+    if "static int sunxi_iommu_suspend(" not in preserved or \
+       "static int sunxi_iommu_resume(" not in preserved or \
+       "const struct dev_pm_ops sunxi_iommu_pm_ops" not in preserved or \
+       "static const struct of_device_id sunxi_iommu_dt_ids[]" not in preserved:
+        p.error("Missing mandatory PM or DT declarations after remove")
+    rem = rem[:brace] + replacement.lstrip("\n") + preserved
     src = pre + rem + post
 
     # Verify key lifecycle invariants before writing.
@@ -232,6 +243,12 @@ err_enable:
         p.error("IRQ release was omitted")
     if newrem.index("devm_free_irq(") > newrem.index("sunxi_pgtable_free_pte_cache("):
         p.error("IRQ handler remains live after cache destruction")
+    for must_keep in ("static int sunxi_iommu_suspend(",
+                      "static int sunxi_iommu_resume(",
+                      "const struct dev_pm_ops sunxi_iommu_pm_ops",
+                      "static const struct of_device_id sunxi_iommu_dt_ids[]"):
+        if must_keep not in newrem:
+            p.error("Stage19 generation dropped: " + must_keep)
     if newrem.count("iommu_device_unregister(") != 1:
         p.error("Duplicate unregister")
     a.out.parent.mkdir(parents=True, exist_ok=True)
