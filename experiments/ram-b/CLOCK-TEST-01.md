@@ -67,3 +67,24 @@ This single-variable test is preparatory. The permanent RAM-B patch should model
 - 26 MHz candidate DTB SHA-256: `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d`.
 - The generator returned successfully; its single-property diff guard is expected to have passed. Full diff text not independently provided in this result.
 - **Hardware oscillator, UART stability and reboot behaviour remain untested for the candidate.** Next gate: U-Boot read-only RTC, PLL_REF and APB-UART register inspection, then controlled boot if consistent.
+
+## U-Boot register evidence: 26 MHz DCXO confirmed by firmware selection
+
+Operator read-only U-Boot observations:
+
+```text
+md.l 0x07090160 1 -> 183fb0f7
+md.l 0x02002000 1 -> f8675f00
+md.l 0x02002538 1 -> 00000000
+```
+
+Decoded using the A733 RTC and CCU definitions being audited:
+
+- RTC DCXO bits 15:14 = 2: firmware oscillator selection is **26 MHz**.
+- PLL_REF (0x02002000): N field bits 15:8 is 0x5f -> 96; output divider M bits 22:16 is 0x67 -> 104; P bit 1 is 0 -> 1. **26,000,000 x 96 / 104 = 24,000,000 Hz**.
+- APB_UART (CCU 0x538): mux bits 26:24 = 0 (sys-24M); divider bits 4:0 = 0 (divide by 1). Expected physical APB UART source **24 MHz**.
+- The RAM-A DTB instead provides 24 MHz as the **PLL_REF parent** (fixed `/osc-clk`) and Linux reported `uartclk=22,153,846`. With the above PLL factors, that software rate is exactly `24,000,000 x 96/104`.
+
+**Conclusion:** firmware register state and the RAM-A software clock model are inconsistent. The 26 MHz root-oscillator DTB test is now justified, but stable ttyS0 TX/RX and reboot elimination still require a controlled physical boot. Do not claim the reboot root cause is proven. No register writes were made in this test.
+
+Candidate DTB SHA-256: `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d`.
