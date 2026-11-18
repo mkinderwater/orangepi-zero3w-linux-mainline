@@ -54,3 +54,7 @@ Do not enable real device nodes in a DTB until driver, supply, pinmux, interrupt
 ## Promotion rule
 
 Only label full integration **last known good** once the hardware boots, root filesystem and key interfaces function, no spurious resets occur across 10 cold boots + 10 warm boots and a 24-hour endurance run, and exact source/config/kernel/DTB/rootfs/firmware hashes are recorded.
+
+## Build result and SD clock guard
+
+Operator reports full kernel Image/modules build finished. Image SHA-256 `97c98f2cc6135e938c664936674936ece49a3257935395441f4ceacdb8fb406d`, `.config` SHA-256 `aaad20e5df200caae35dc8e58faaf6e843211d3a4b316ccf24bf55ebaf945351`, DTB SHA-256 `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d`. This original DTB keeps MMC0 disabled. `scripts/stage-25mhz-mmc-dtb.sh` creates a separate copy that retains 26 MHz root input and MMC0 disabled but adds `max-frequency=25000000` for subsequent integration. It does **not** prove a functional or measured SD bus; restore proper PMIC and vmmc supply before enabling MMC0. OCR mismatch remains unverified with corrected clocks. No SD image produced by this kernel build.
