@@ -143,3 +143,23 @@ python3 scripts/stage-a733-iommu-v20-compile.py \
 ```
 
 Upload a concise diagnostic with manifest, the first compiler errors, and the first command line containing `-DCONFIG_AW_IOMMU_V2=1`. **No boot/image actions.**
+
+## Verified v2 selector success and stage-2 interface prototype
+
+The user's `build(1).log` confirms the **actual** `aarch64-linux-gnu-gcc -c drivers/iommu/aw-v20/sunxi-iommu-v2.c` command contains `-DCONFIG_AW_IOMMU_V2=1`. All missing `IOMMU_VA_BITS`, `IOMMU_PT_MASK`, `SPAGE_SIZE`, `SPD_SIZE`, `SPAGE_ALIGN` failures disappear. This closes the vendor page-table config selection issue. The object still fails to compile due to **real** API mismatches: `.map`, `.unmap`, `iotlb_sync_map` return type, `pgsize_bitmap` moved to `iommu_domain`, legacy `.domain_alloc`, `of_xlate` const args and `platform_driver.remove` return type.
+
+The upstream GitHub [Allwinner v20 source](https://github.com/alexcaoys/allwinner-bsp/blob/656a550c826787e7e72fae58ca793df9e0988ac8/drivers/iommu/sunxi-iommu-v2.c) has modern `domain_alloc_paging`, `map_pages/unmap_pages`, `iotlb_sync_map` int and void platform remove callbacks. **Do not cherry-pick it wholesale**: the reference is not the exact operator vendor tree and its global domain lifetime and DMA semantics have not been validated.
+
+Commit `8563262` introduces `scripts/apply-a733-iommu-v20-api-stage2.py`, a **fail-closed, exact SHA256 checked, compile-only source transformer**. It writes a separate new source and unified diff, never overwriting the vendor copy. It changes interface signatures and page-size metadata only; deliberately **does not claim safe runtime behavior**. Unresolved are shared-domain ownership, hardware-init failures, default domain, mapping failure atomicity, TLB synchronization and full device-tree/stream validation. It also deliberately leaves the platform remove implementation unchanged pending full lifecycle inspection, so compilation may continue to fail.
+
+To generate (without compiling) a source patch from the last staged tree:
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/apply-a733-iommu-v20-api-stage2.py \
+ --source /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-kcflags/linux/drivers/iommu/aw-v20/sunxi-iommu-v2.c \
+ --out /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-api-stage2.c
+```
+
+If an anchor differs the script **stops without generating output**. Review the emitted .patch rather than applying changes blindly; compile work requires a subsequent explicit copy into a disposable staged tree. No firmware or boot image is part of this step.
