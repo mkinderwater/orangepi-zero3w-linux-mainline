@@ -36,10 +36,23 @@ while queue:
         # Do not shadow upstream Linux, DRM, or architecture headers.
         if rel.parts[0] in {"linux", "drm", "asm", "asm-generic", "uapi", "generated"}:
             continue
-        candidate = shared / rel
-        if not candidate.is_file():
+        # Quoted includes in a staged vendor header resolve relative to
+        # that header first: errcode/sunxi-err.h includes sunxi-err-audio.h.
+        candidates = []
+        if file.is_relative_to(destination):
+            relative_parent = file.parent.relative_to(destination)
+            candidates.append(relative_parent / rel)
+        candidates.append(rel)
+        chosen = None
+        for relative_path in candidates:
+            possible = shared / relative_path
+            if possible.is_file():
+                chosen = (possible, relative_path)
+                break
+        if chosen is None:
             continue
-        target = destination / rel
+        candidate, target_rel = chosen
+        target = destination / target_rel
         if target.exists():
             if target.read_bytes() != candidate.read_bytes():
                 raise SystemExit(f"STOP: shared-header mismatch for {rel}")
