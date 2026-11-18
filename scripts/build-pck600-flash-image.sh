@@ -34,7 +34,7 @@ trap cleanup EXIT
 die() { echo "STOP: $*" >&2; exit 1; }
 [[ "$(id -u)" -eq 0 ]] || die "run as root"
 [[ -n "$BASE_IMAGE" && -f "$BASE_IMAGE" ]] || die "BASE_IMAGE must name a previously boot-tested disk .img"
-for t in losetup lsblk mount umount blkid sfdisk sha256sum python3 dumpimage e2fsck stat cmp; do
+for t in losetup mount umount blkid sfdisk sha256sum python3 dumpimage e2fsck stat cmp; do
   command -v "$t" >/dev/null || die "Missing tool $t"
 done
 [[ "$BASE_IMAGE" != "$OUT_IMAGE" ]] || die "BASE_IMAGE and OUT_IMAGE must differ"
@@ -47,23 +47,24 @@ TMP="$(mktemp -d)"
 mkdir -p "$TMP/mnt"
 echo "Cloning base image (bootloader and partition layout remain byte-for-byte)..."
 cp --reflink=auto --sparse=never -- "$BASE_IMAGE" "$OUT_IMAGE"
-LOOP="$(losetup --find --show --partscan "$OUT_IMAGE")"
-# First ext4 partition normally p1 (stock) or p2 (0.7.6). Exactly one
-# unambiguous root partition is required, to avoid patching the wrong rootfs.
-mapfile -t roots < <(lsblk -nr -o PATH,FSTYPE "$LOOP" | awk '$2=="ext4" {print $1}')
-[[ "${#roots[@]}" -eq 1 ]] || die "Expected exactly one ext4 root partition, found ${#roots[@]}: ${roots[*]}"
-PART="${roots[0]}"
-# Validate partition layout, filesystem state, and 32MiB reserved firmware prefix.
-sfdisk -J "$LOOP" > "$TMP/partition-table.json"
-python3 - "$TMP/partition-table.json" <<'PY'
+# Partition 0x83 might not report FSTYPE to lsblk in this build host.
+# Use partition-table byte offsets and a direct loop mount instead.
+sfdisk -J "$OUT_IMAGE" > "$TMP/partition-table.json"
+python3 - "$TMP/partition-table.json" > "$TMP/ext4-offset.txt" <<'PY'
 import json,sys
 j=json.load(open(sys.argv[1]))["partitiontable"]
 part=j.get("partitions",[])
-if not part: raise SystemExit("STOP: no partition table")
-if min(p["start"] for p in part)!=65536:
-    raise SystemExit("STOP: expected first partition at 32 MiB/65536 sectors, got "+str(min(p["start"] for p in part)))
+if not part or min(p["start"] for p in part)!=65536:
+    raise SystemExit("STOP: expected firmware reserved first 32 MiB")
+roots=[p for p in part if str(p.get("type","")).lower().removeprefix("0x")=="83"]
+if len(roots)!=1:
+    raise SystemExit(f"STOP: expected one Linux type 83 partition, found {len(roots)}")
+p=roots[0]
+sector=int(j.get("sectorsize",512))
+print(p["start"]*sector,p["size"]*sector)
 PY
-mount -t ext4 "$PART" "$TMP/mnt"
+read -r OFFSET LIMIT < "$TMP/ext4-offset.txt"
+mount -t ext4 -o "loop,offset=$OFFSET,sizelimit=$LIMIT" "$OUT_IMAGE" "$TMP/mnt"
 MOUNTED=1
 target="$TMP/mnt"
 for path in "$KERNEL_TARGET" "$DTB_TARGET" "$STAGE2"; do
@@ -120,23 +121,28 @@ PY
 sync
 umount "$TMP/mnt"
 MOUNTED=0
-losetup -d "$LOOP"
-LOOP=""
-# Verify final image partition and payloads read-only.
-LOOP="$(losetup --find --show --partscan --read-only "$OUT_IMAGE")"
-mapfile -t roots < <(lsblk -nr -o PATH,FSTYPE "$LOOP" | awk '$2=="ext4" {print $1}')
-[[ "${#roots[@]}" -eq 1 ]] || die "Final image root partition not found"
-e2fsck -fn "${roots[0]}" > "$TMP/fsck.log" 2>&1 || {
-  cat "$TMP/fsck.log"; die "Read-only fsck reported filesystem errors";
-}
-mount -o ro -t ext4 "${roots[0]}" "$TMP/mnt"
+# Mount output read-only with journal replay disabled, compare payloads.
+# Do not rely on loop partition enumeration or lsblk filesystem detection.
+mount -t ext4 -o "ro,noload,loop,offset=$OFFSET,sizelimit=$LIMIT" "$OUT_IMAGE" "$TMP/mnt"
 MOUNTED=1
 cmp "$KERNEL" "$TMP/mnt$KERNEL_TARGET" || die "Final image kernel differs"
 cmp "$DTB" "$TMP/mnt$DTB_TARGET" || die "Final image DTB differs"
 dumpimage -T script -p 0 -o "$TMP/stage2-after.cmd" "$TMP/mnt$STAGE2" >/dev/null 2>&1 || die "Cannot re-read stage2"
 cmp "$TMP/stage2.cmd" "$TMP/stage2-after.cmd" || die "Stage2 changed"
+# The copied image is already mounted read-only. fsck after unmount below.
 # firmware prefix unchanged. The first 32 MiB contain vendor boot firmware.
 cmp -n 33554432 "$BASE_IMAGE" "$OUT_IMAGE" || die "Firmware prefix differs"
+sync
+umount "$TMP/mnt"
+MOUNTED=0
+# fsck directly against the root partition offset without altering the image.
+LOOP="$(losetup --find --show --read-only --offset "$OFFSET" --sizelimit "$LIMIT" "$OUT_IMAGE")"
+if ! e2fsck -fn "$LOOP" > "$TMP/fsck.log" 2>&1; then
+  cat "$TMP/fsck.log"
+  die "Read-only filesystem check failed"
+fi
+losetup -d "$LOOP"
+LOOP=""
 sha256sum "$OUT_IMAGE" > "$OUT_IMAGE.sha256"
 printf '%s\n' "BOOT-PROBE (NOT HARDWARE TESTED)" \
  "Base: $BASE_IMAGE" "Output: $OUT_IMAGE" \
