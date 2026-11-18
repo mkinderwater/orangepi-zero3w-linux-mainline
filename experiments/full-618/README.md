@@ -141,3 +141,7 @@ vmmc-supply, vqmmc-supply, vqmmc33sw-supply, vqmmc18sw-supply: absent
 ```
 
 **Decision:** 150 MHz maximum is staged, but SD clock is not physically verified because controller remains disabled. PF0-PF5 are correctly described in the pinmux, but PF6 card detect is not represented. Need *board-specific* vendor DTB/regulator source to ground the AXP8191 supply and card-detect wiring. No invented phandle or bare `status=okay`. Existing measured controller clock tree does not by itself solve `no support for card's volts`. Check vendor regulator driver compiled into the full integration config and I2C bus connectivity before MMC activation.
+
+### Standard AXP20x framework is enabled, AXP8191 support not yet proven
+
+Operator's full build config reports `CONFIG_MFD_AXP20X=y`, `CONFIG_MFD_AXP20X_I2C=y`, `CONFIG_REGULATOR_AXP20X=y`, `CONFIG_REGULATOR_SUN20I=y`. Neither these standard Kconfig symbols nor `CONFIG_I2C=y` by themselves demonstrate an AXP8191 PMIC driver, actual PMIC probe, required I2C controller support or an AXP8191 regulator registration. The audited DTB lacks all MMC0 supply references. Before enabling MMC0, inspect this kernel source's AXP8191 compatibles and regulator mapping, the vendor Zero 3W DTB's DC1SW2/CLDO5 routing, and applicable I2C bus driver. Do not infer from the previous `no support for card's volts` alone that the speed mismatch was its cause.
