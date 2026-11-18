@@ -39,7 +39,7 @@ def main():
         p.error("STOP: updated A733 parent-syscon driver not present")
     # Source-verified register identity: vendor CLK_R_PPU(19) and A733
     # CLK_BUS_R_PPU(18) both gate R-CCU + 0x1ac bit 0.
-    rx=re.compile(r'^\\s*#define\\s+(CLK_BUS_R_PPU)\\s+(0x[0-9a-fA-F]+|\\d+)\\b',re.M)
+    rx=re.compile(r'^\s*#define\s+(CLK_BUS_R_PPU)\s+(0x[0-9a-fA-F]+|\d+)\b',re.M)
     symbols={n:int(v,0) for n,v in rx.findall(bindings.read_text())}
     if symbols != {"CLK_BUS_R_PPU":18}:
         p.error(f"STOP: expected CLK_BUS_R_PPU=18; found {symbols}")
@@ -47,14 +47,12 @@ def main():
     if a.clock_symbol and a.clock_symbol!=selected:
         p.error(f"Only register-verified {selected} is accepted")
     source=driver.read_text()
-    if not re.search(r'SUNXI_CCU_GATE_HW\\s*\\(\\s*bus_r_ppu_clk\\s*,.*?0x0*1ac\\s*,\\s*BIT\\(0\\)',source,re.S|re.I):
+    if not re.search(r'SUNXI_CCU_GATE_HW\s*\(\s*bus_r_ppu_clk\s*,.*?0x0*1ac\s*,\s*BIT\(0\)',source,re.S|re.I):
         p.error("STOP: modern R-CCU PPU gate 0x1ac BIT(0) not found")
-    vendor=a.root.parent.parent/"opi3w-vendor-6698-work/kernel/bsp/drivers/clk/sunxi-ng/ccu-sun60iw2-r.c"
-    # Vendor R-CCU reference may be outside Stage4 hierarchy.
     vendor=Path("/root/opi3w-vendor-6698-work/kernel/bsp/drivers/clk/sunxi-ng/ccu-sun60iw2-r.c")
     if not vendor.is_file():
         p.error(f"Vendor R-CCU source missing: {vendor}")
-    if not re.search(r'SUNXI_CCU_GATE\\s*\\(\\s*r_ppu_clk\\s*,.*?0x0*1ac\\s*,\\s*BIT\\(0\\)',vendor.read_text(),re.S|re.I):
+    if not re.search(r'SUNXI_CCU_GATE\s*\(\s*r_ppu_clk\s*,.*?0x0*1ac\s*,\s*BIT\(0\)',vendor.read_text(),re.S|re.I):
         p.error("STOP: vendor R-CCU PPU gate 0x1ac BIT(0) not found")
     soc="/soc@0"
     rccu="/soc@0/clock-controller@7010000"
