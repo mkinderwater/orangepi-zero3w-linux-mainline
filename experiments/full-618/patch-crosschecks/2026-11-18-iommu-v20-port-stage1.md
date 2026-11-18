@@ -80,3 +80,28 @@ D=/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-arm6
 ```
 
 **Status:** corrected source-only ARM64 diagnostic script committed, awaiting operator execution. No target-board validation.
+
+## Actual ARM64 compile results (operator diagnostics)
+
+The corrected AArch64 build used `aarch64-linux-gnu-gcc`, exact Stage 4 config SHA256 `f98a84b103b7fb897f4bd962ac4f13a8d0b614cd8a3ec206eda80d18b3174be5`, and returned code **2** when compiling the actual vendor `sunxi-iommu-v2.o`. This is a valid initial compile failure, not a pass.
+
+**Important confounding condition:** Stage 4 has `CONFIG_IOMMU_SUPPORT=n`. The initial build did not turn it on in the *isolated* tree; consequently Linux exposed stub/incomplete `iommu_ops` and `iommu_domain_ops`, producing misleading "no member" and incomplete-type errors. Commit `395e04a` fixes the diagnostic harness to enable `IOMMU_SUPPORT=y` and `IOMMU_DMA=y` **only within its copied worktree**, then assert both survive `olddefconfig`. Its output manifest records the modified diagnostic configuration SHA. The original validated config remains untouched.
+
+Other visible compiler blockers may remain once the real IOMMU API is enabled:
+- `IOMMU_VA_BITS`, `IOMMU_PT_MASK`, `SPAGE_SIZE`, `SPD_SIZE` and `SPAGE_ALIGN` unresolved. Investigate their definitions/config guards in exact vendor files, not generic guesses.
+- `iommu_iotlb_gather.start/end` not available in the active configuration/target struct; use target-appropriate range operations only after examining the real header.
+- `dev_iommu_priv_get/set` undeclared in active build, possibly from wrong configuration/header path; recheck after enabling core.
+- `iommu_alloc_resv_region` undeclared; reconcile with 6.18 reserved-region semantics.
+- `platform_driver.remove` expects `void (*)(struct platform_device *)` but vendor callback returns `int`.
+- Earlier reviewed domain-ownership, error propagation and callback-type mismatches still require porting.
+
+Use a **fresh directory**:
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/stage-a733-iommu-v20-compile.py \
+  --out /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-iommu-enabled
+```
+
+This stage remains source-only and does not create any bootable image or enable the display DMA consumer. **Do not interpret disappearance of stub-type errors as a driver port PASS.**
