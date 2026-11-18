@@ -61,3 +61,20 @@ Design gate: controller-owned *single active hardware translation context* with 
 - Board-specific DTS inheritance and DTB settings; full kernel link, runtime validation
 
 **No source, DTB, image, firmware or MMIO modifications.**
+
+## Operator verification: compiled Zero 3W DTBs and `of_xlate`
+
+The operator confirmed two compiled board DTBs:
+
+- `/root/opi3w-vendor-6698-work/obj-control/arch/arm64/boot/dts/allwinner/sun60i-a733-orangepi-zero3w.dtb`
+- `/root/opi3w-vendor-6698-work/obj-identity/arch/arm64/boot/dts/allwinner/sun60i-a733-orangepi-zero3w.dtb`
+
+Their contents and hashes have **not yet** been compared. The audited driver `sunxi_iommu_of_xlate()`, lines 1142-1168, reads `args->args[0]` as `owner->tlbid`, `args->args[1]` as `owner->flag`, records the IOMMU controller and device pointers, and caches the owner in `dev_iommu_priv_set`. For the DE, `<&mmu_aw 8 1>` therefore means master 8, master flag 1, **not** Linux domain 1.
+
+Additional source-level checks before runtime:
+- Verify `args->args_count == 2` and `tlbid < 12` before reading or using the IDs.
+- Existing `owner` returns success without checking whether a repeated translation declaration contradicts the first (master, flag, controller).
+- Balance `of_find_device_by_node` reference ownership, confirm device and controller lifetime, and inspect failure unwind.
+- Defer enabling master translation until successful domain attachment and DMA page-table synchronization.
+
+Follow-up: compare both compiled Zero3W DTBs read-only, inspect decompiled IOMMU provider and DE0 consumer nodes, and record hashes. No DTB modifications or MMIO access.
