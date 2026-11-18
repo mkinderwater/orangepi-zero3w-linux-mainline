@@ -91,15 +91,15 @@ def main():
         result.append(f"Vendor ID 19 = {vname} -> {name}, offsets={offsets}, bits={bits}")
         matched=[]
         for k,(var,registers,gates,chunk) in md.items():
-            common=set(offsets)&set(registers)
+            common={int(x, 16) for x in offsets} & {int(x, 16) for x in registers}
             if common:
-                matched.append((k,ms.get(k),var,sorted(common),gates))
+                matched.append((k,ms.get(k),var,[hex(x) for x in sorted(common)],gates))
         for k,value,var,common,gates in matched:
             result.append(f"Candidate: {k} id={value}, variable={var}, shared offsets={common}, gate bits={gates}")
         if not matched:
             result.append("STOP: no equivalent modern R-CCU clock register found by offset.")
         else:
-            result.append("Candidates are not proof. Confirm register gate bits and parent names before DTB stage.")
+            result.append("Candidates require matching register gate bits and acknowledgement of parent-clock differences.")
     result.append("Never change working RAM-B DTB or firmware during clock investigation.")
     a.output.parent.mkdir(parents=True,exist_ok=True)
     a.output.write_text("\n".join(result)+"\n")
