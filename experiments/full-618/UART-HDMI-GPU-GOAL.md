@@ -70,3 +70,11 @@ Vendor kernel config proves `CONFIG_AW_DRM=y`, `CONFIG_AW_DRM_DE=y`, `CONFIG_AW_
 ## Stage 4: First complete vendor HDMI DRM kernel build
 
 Operator reports successful `JOBS=4 bash scripts/port-sunxi-fb-dsi-notifier-618.sh` incremental `Image modules` build. Output kernel `/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/Image-618-vendor-hdmi` SHA-256 `9a4605cea00f1af2596095285162d7c270e35ae33563cc0a8b1b4ee7e1470a98`; build `.config` SHA-256 `a70c49e15c4e7ef684f39965d1e192743e4b2387e283127beefa5788655de290`. DSI old fbdev notifier calls conditionally excluded only with DSI disabled; DSI parity remains unimplemented. Compiling the vendor display engine, TCON, HDMI transmitter and DRM is **not yet** a hardware HDMI result, and the 26 MHz minimal RAM-B DTB lacks known complete display nodes. Next: extract and compare exact original vendor Zero 3W live display graph and dependencies, stage a separately named test DTB, verify boot-time UART and HDMI independently, then GPU rendering. Never overwrite RAM-B LKG.
+
+## Vendor compiled Zero 3W DTB comparison
+
+Operator compared `obj-control` and `obj-identity` compiled vendor 6.6.98 DTBs; DTS diff was 11 lines. Both include enabled `allwinner,sunxi-drm`, DE v352 at `0x05000000`, TCON_TOP0/1 at `0x05500000`/`0x05510000`, TCON3/4 at `0x05730000`/`0x05731000`, and HDMI0 at `0x05520000`. Vendor also describes `img,gpu` at `0x01800000` but the current Linux 6.18 test config has `CONFIG_DRM_POWERVR` disabled.
+
+Vendor HDMI references clock provider phandles `0x12` and `0x2e` and power-domain provider `0x13`; those are **not transferable numeric IDs** into the tiny RAM-B DTB. DE and TCON have related reset and power dependencies. The current RAM-B DTB does not contain the vendor display graph.
+
+Run `python3 scripts/resolve-vendor-hdmi-dependencies.py /root/opi3w-m2-work/linux-618-hdmi-stage4/vendor-dtb-topology/vendor-control.dts /root/opi3w-m2-work/linux-618-hdmi-stage4/vendor-dtb-topology/ram-b.dts --output /root/opi3w-m2-work/linux-618-hdmi-stage4/vendor-dtb-topology/phandle-dependencies.txt` to resolve providers. This is read-only; a boot DTB has **not** been constructed or verified. Retain vendor firmware, proven 26 MHz oscillator and UART.
