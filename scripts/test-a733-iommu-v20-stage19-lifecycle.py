@@ -2,16 +2,16 @@
 """Read-only structural checks for Stage19 generated C, NOT runtime tests."""
 import argparse
 from pathlib import Path
+import sys
 import unittest
 
 DEFAULT=Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-stage19-lifecycle-draft.c")
+SOURCE = DEFAULT
+
 class Check(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        p=argparse.ArgumentParser()
-        p.add_argument("--source",type=Path,default=DEFAULT)
-        a=p.parse_args()
-        cls.text=a.source.read_text()
+        cls.text=SOURCE.read_text()
         cls.probe=cls.text.split("static int sunxi_iommu_probe(struct platform_device *pdev)",1)[1].split("static int sunxi_iommu_remove(struct platform_device *pdev)",1)[0]
         cls.remove=cls.text.split("static int sunxi_iommu_remove(struct platform_device *pdev)",1)[1].split("/* Diagnostic API adapter:",1)[0]
         cls.sysfs=cls.text.split("static int sunxi_iommu_sysfs_create(",1)[1].split("static void sunxi_iommu_sysfs_remove(",1)[0]
@@ -69,4 +69,10 @@ class Check(unittest.TestCase):
         self.assertIn("global_iommu_domain",self.text)
         self.assertIn("sunxi_iommu_attach_dev",self.text)
 if __name__=="__main__":
-    unittest.main(verbosity=2)
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--source", type=Path, default=DEFAULT)
+    args, unittest_args = parser.parse_known_args()
+    SOURCE = args.source
+    if not SOURCE.is_file():
+        parser.error(f"source file not found: {SOURCE}")
+    unittest.main(argv=[sys.argv[0], *unittest_args], verbosity=2)
