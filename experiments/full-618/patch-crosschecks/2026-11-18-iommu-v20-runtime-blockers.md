@@ -106,3 +106,11 @@ The patch must NOT be merged as a runtime fix:
 - `global_iommu_dev`, `global_group` and static page-table parameters remain global; DMA sync/IOVA mapping B2/B5/B6 remain unresolved.
 
 Recommendation: permit **compile-only** evaluation on a disposable source copy, but design a coherent ownership and hardware activation state machine before further runtime changes. Do not mark B1, B3 or B4 fixed based only on successful compilation.
+
+## Stage 6 isolated object compilation result
+
+The operator uploaded `iommu-v20-stage6-build.log`: `make` compiled `drivers/iommu/aw-v20/sunxi-iommu-v2.o` and exited normally, with no reported errors and 13 `-Wmissing-prototypes` warnings, matching the earlier vendor baseline warnings. The build log does not contain the separate shell-printed `RC`, so this is log-based evidence, not an independently captured exit status. **Stage 6 draft compile PASS; no lifecycle or DMA safety sign-off.**
+
+**Artifact contamination precaution:** The previous compile steps restored the staged `sunxi-iommu-v2.c`, but left the *Stage 6 draft* `sunxi-iommu-v2.o` inside the disposable build directory. Do not report a fresh three-object/relocatable-link result or reuse the old combined-object hash without rebuilding the v2 object from the intended source. Verify SHA256 `aa78ce2829693be1c27e93647244f50dd86dc4f386930b2301ba8990b7d19b53` of the restored staged source, remove the stale v2 object, and recompile it using the existing `-DCONFIG_AW_IOMMU_V2=1` and vendor include path. For Stage 6 linkage, use a *separately saved* Stage 6 object and unique output filenames, rather than altering the established Stage 4 linkage evidence.
+
+Remaining acceptance gates: concurrently safe lifecycle with correct core domain ownership; hardware-init unwind; real device/domain attach and detach; DMA-backed/coherent page tables; bounds/rollback and TLB invalidation; integrated kernel link. Activation gate remains BLOCKED.
