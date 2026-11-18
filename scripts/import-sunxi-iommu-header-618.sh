@@ -41,7 +41,7 @@ if grep -Eq '^[[:space:]]*#[[:space:]]*include[[:space:]]*<sunxi-iommu[.]h>' "$D
   MK="$DRM/Makefile"
   FLAG='ccflags-y += -I$(src)'
   if ! grep -Fqx "$FLAG" "$MK"; then
-    printf '\\n%s\\n' "$FLAG" >> "$MK"
+    printf '\n%s\n' "$FLAG" >> "$MK"
   fi
 fi
 LOG="$ROOT/build-iommu-header-618.log"
