@@ -91,3 +91,23 @@ CONFIG_MMC_SUNXI=y
 ### Correction: SD controller capability is up to 150 MHz
 
 The 25 MHz cap documented above was an *initial conservative diagnostic speed*, **not** the vendor maximum. The A733 base device-tree reference by Andre Przywara specifies `max-frequency = <150000000>` for MMC0 (see https://gist.github.com/apritzel/60fd7379b9560a15b8b352986b69d39f). For the full integration branch, `scripts/stage-150mhz-mmc-dtb.sh` now produces a separate DTB with `max-frequency=150000000`, retaining the measured 26 MHz oscillator model and **leaving MMC0 disabled**. The script preserves the known-good DTB. 150 MHz is the controller's configured maximum, **not a guarantee of a 150 MHz card bus**. Linux sets the negotiated clock for the card's speed mode and signal voltage. At 3.3 V, conventional SD High Speed is nominally 50 MHz; faster UHS modes need correct 1.8 V switching, signal/pin timing, and controller support. The source's mainline `sunxi-mmc` compatibility and card voltage/OCR failures remain separately unverified on this particular full-build kernel. Do not treat the earlier 25 MHz as a permanent setting.
+
+### SD/MMC controller roles and card-detect semantics
+
+User-supplied baseline DTS for MMC0:
+
+```dts
+&mmc0 {
+    bus-width = <4>;
+    cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;
+    no-sdio;
+    no-mmc;
+    max-frequency = <25000000>;
+};
+```
+
+This **25 MHz setting is a conservative initial card-test value**, not the 150 MHz vendor MMC0 host ceiling. Other controller roles: sdmmc0 `0x04020000` removable microSD 150 MHz maximum; sdmmc1 `0x04021000` AIC8800 SDIO Wi-Fi 208 MHz reported maximum; sdmmc2 `0x04022000` optional eMMC, max not established.
+
+`no-sdio` and `no-mmc` describe the removable SD memory-card slot protocol; **do not** apply `no-sdio` to Wi-Fi's MMC1. `&pio 5 6` addresses **PF6** and `GPIO_ACTIVE_LOW` is active-low card detection. Confirm this exact board routing and phandle before enabling; DDR/MMC0 pinmux group is PF0-PF5, separate from PF6. A November 2026 upstream Linux pinctrl correction describes PF6 interrupt/card-detect failures caused by `irq_read_needs_mux` on another A733 board: https://lists.openwall.net/linux-kernel/2026/11/10/2385 . Audit the A733 pinctrl driver's IRQ mux handling if removable-card events fail. Test 25 MHz initialization first and then negotiate higher card modes, measuring `actual clock` and signal voltage rather than assuming `max-frequency=150000000` means the card is running at 150 MHz.
+
+Until regulator wiring is correct, keep both staged clock DTBs disabled; they are intermediate artifacts and not boot-ready storage configs.
