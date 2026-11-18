@@ -91,7 +91,6 @@ def main():
     (target/"Makefile").write_text(
         "# Diagnostic-only v2 selector: vendor Kconfig is not installed here.\n"
         "# Match CONFIG_AW_IOMMU_V2=y semantics only for these three objects.\n"
-        "ccflags-y += -DCONFIG_AW_IOMMU_V2=1\n"
         "obj-y += sunxi-iommu-v20.o sunxi-iommu-common.o sunxi-iommu-pgtable.o\n")
     # Do not put CONFIG_* into the main Kconfig/Makefile yet. The Makefile target
     # compiles standalone objects without registering any driver in the kernel.
@@ -101,7 +100,7 @@ def main():
         "Stage Linux source: "+str(a.linux)+"\n"
         "Stage vendor source: "+str(source)+"\n"
         "Architecture: arm64\n"+"Cross compiler: "+gcc+"\n"+
-        "Isolated vendor macro: CONFIG_AW_IOMMU_V2=1 (directory ccflags-y only)\n"+
+        "Isolated vendor macro: CONFIG_AW_IOMMU_V2=1 (KCFLAGS during object builds)\n"+
         "Validated configuration: "+str(config)+"\n"
         "Linux .config SHA256: "+sha(config)+"\n"+
         "\n".join(name+" SHA256 "+sha(source/name) for name in FILES)+"\n")
@@ -144,7 +143,20 @@ def main():
     status=0
     for obj in objects:
         target_obj="drivers/iommu/aw-v20/"+obj
-        rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=0",target_obj],log,env)
+        rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=1",
+                "KCFLAGS=-DCONFIG_AW_IOMMU_V2=1",target_obj],log,env)
+        # Evidence gate: the compiler command must actually include our V2 selector.
+        # A manifest declaration or directory Makefile by itself proved insufficient.
+        build_text=log.read_text(errors="replace")
+        compile_lines=[line for line in build_text.splitlines()
+                       if gcc in line and " -c " in line
+                       and "sunxi-iommu-" in line
+                       and "-DCONFIG_AW_IOMMU_V2=1" in line]
+        if not compile_lines:
+            with log.open("a") as lf:
+                lf.write("ERROR: no AArch64 compile command with CONFIG_AW_IOMMU_V2 found\\n")
+            status=13
+            break
         if rc:
             status=rc
             break
