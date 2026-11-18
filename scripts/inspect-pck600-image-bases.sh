@@ -2,7 +2,7 @@
 # Read-only identification of available two-stage boot disk images.
 # Does not edit, assemble, or flash anything.
 set -euo pipefail
-for tool in mount mountpoint umount sfdisk sha256sum dumpimage find python3; do
+for tool in mount mountpoint umount sfdisk sha256sum dumpimage find python3 strings; do
   command -v "$tool" >/dev/null || { echo "Missing tool: $tool" >&2; exit 1; }
 done
 [[ "$(id -u)" -eq 0 ]] || { echo "Run as root" >&2; exit 1; }
@@ -41,26 +41,21 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
     cleanup_one
     continue
   fi
-  echo "=== root filesystem entries ==="
-  ls -la "$MNT" | sed -n '1,45p' || :
-  echo "=== boot directory probe ==="
-  if [[ ! -d "$MNT/boot" ]]; then
-    echo "NO /boot directory in ext4 root; image may use a separate partition or empty root."
-    echo "=== top-level regular files ==="
-    find "$MNT" -maxdepth 2 -type f -printf '%P %s bytes\n' 2>/dev/null | sed -n '1,90p' || :
-  else
-    echo "=== /boot files (names and sizes) ==="
-    find "$MNT/boot" -maxdepth 5 -type f -printf '%P %s bytes\n' 2>/dev/null | sed -n '1,110p' || :
-    echo "=== candidate boot scripts ==="
-    while IFS= read -r -d '' script; do
+  echo "=== Root and /boot quick inventory ==="
+  ls -ld "$MNT" "$MNT/boot" "$MNT/boot/mainline" 2>&1 || :
+  if [[ -d "$MNT/boot" ]]; then
+    find "$MNT/boot" -maxdepth 4 -type f \( -name "*.scr" -o -name "*.cmd" -o -name "*Image*" -o -name "*initrd*" -o -name "*ram-b*.dtb" -o -name "*uart*.dtb" \) -printf "%P %s bytes\\n" 2>/dev/null | sed -n "1,100p" || :
+    echo "=== U-Boot script commands ==="
+    while IFS= read -r -d "" script; do
       echo "SCRIPT: ${script#"$MNT"}"
       sha256sum "$script" || :
-      dumpimage -T script -p 0 -o /dev/stdout "$script" 2>/dev/null |
-        grep -E -i 'mainline|booti|bootm|fdt|dtb|Image|initrd|ramdisk|ext4load|load |source|console|bootargs' | sed -n '1,70p' || :
-    done < <(find "$MNT/boot" -type f \( -name '*.scr' -o -name 'boot.scr' \) -print0 2>/dev/null)
-    echo "=== RAM-B kernel/DTB/initramfs hashes ==="
-    find "$MNT/boot" -type f \( -name 'Image*' -o -name '*ram-b*.dtb' -o -name '*diagnostic*initrd*' \) -print0 2>/dev/null |
-      xargs -0 -r sha256sum | sed -n '1,35p' || :
+      # Strip binary U-Boot script length prefixes rather than grepping binary.
+      strings -a -n 4 "$script" | sed -n "1,110p" || :
+    done < <(find "$MNT/boot" -maxdepth 5 -type f -name "*.scr" -print0 2>/dev/null)
+    echo "=== Core boot payload SHA256 ==="
+    find "$MNT/boot/mainline" -maxdepth 3 -type f \( -name "Image" -o -name "Image-*" -o -name "*ram-b*.dtb" -o -name "*uart*.dtb" -o -name "*initrd*.gz" \) -print0 2>/dev/null | xargs -0 -r sha256sum | sed -n "1,35p" || :
+  else
+    echo "NO /boot directory"
   fi
   cleanup_one
 done
