@@ -21,7 +21,7 @@ def substitute(label, pattern, replacement, flags=0):
 
 # 6.18 drm_mode_config_funcs.fb_create takes an extra format-info pointer.
 substitute("fb_create signature",
-    r'(sunxi_drm_gem_fb_create\(struct drm_device \*dev, struct drm_file \*file,\s*)(const struct drm_mode_fb_cmd2 \*mode_cmd\)',
+    r'(sunxi_drm_gem_fb_create\(struct drm_device \*dev, struct drm_file \*file,\s*)(const struct drm_mode_fb_cmd2 \*mode_cmd\))',
     r'\g<1>const struct drm_format_info *info,\n                         \g<2>')
 substitute("framebuffer create argument",
     r'drm_gem_fb_create_with_funcs\(dev, file, mode_cmd,',
