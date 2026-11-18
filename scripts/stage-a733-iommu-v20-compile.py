@@ -89,6 +89,9 @@ def main():
     # Keep vendor sources untouched, and NEVER make this driver eligible to link
     # into a boot image at this stage. This subdir's object target is diagnostic only.
     (target/"Makefile").write_text(
+        "# Diagnostic-only v2 selector: vendor Kconfig is not installed here.\n"
+        "# Match CONFIG_AW_IOMMU_V2=y semantics only for these three objects.\n"
+        "ccflags-y += -DCONFIG_AW_IOMMU_V2=1\n"
         "obj-y += sunxi-iommu-v20.o sunxi-iommu-common.o sunxi-iommu-pgtable.o\n")
     # Do not put CONFIG_* into the main Kconfig/Makefile yet. The Makefile target
     # compiles standalone objects without registering any driver in the kernel.
@@ -98,6 +101,7 @@ def main():
         "Stage Linux source: "+str(a.linux)+"\n"
         "Stage vendor source: "+str(source)+"\n"
         "Architecture: arm64\n"+"Cross compiler: "+gcc+"\n"+
+        "Isolated vendor macro: CONFIG_AW_IOMMU_V2=1 (directory ccflags-y only)\n"+
         "Validated configuration: "+str(config)+"\n"
         "Linux .config SHA256: "+sha(config)+"\n"+
         "\n".join(name+" SHA256 "+sha(source/name) for name in FILES)+"\n")
