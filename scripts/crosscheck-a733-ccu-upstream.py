@@ -10,8 +10,8 @@ COMMITS = [
 FILES = [
 "drivers/clk/sunxi-ng/ccu-sun60i-a733.c",
 "drivers/clk/sunxi-ng/ccu-sun60i-a733-r.c",
-"drivers/clk/sunxi-ng/ccu-sdm.c",
-"drivers/clk/sunxi-ng/ccu-sdm.h",
+"drivers/clk/sunxi-ng/ccu_sdm.c",
+"drivers/clk/sunxi-ng/ccu_sdm.h",
 "include/dt-bindings/clock/allwinner,sun60i-a733-ccu.h",
 "include/dt-bindings/clock/allwinner,sun60i-a733-r-ccu.h",
 "include/dt-bindings/reset/allwinner,sun60i-a733-ccu.h",
