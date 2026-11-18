@@ -123,3 +123,21 @@ bash scripts/audit-mmc0-board-wiring.sh
 ```
 
 Result: `/root/opi3w-m2-work/linux-618-full-integration/mmc0-audit/summary.txt`. Do not invent AXP8191 supply phandles from other boards. Capture phandle target definitions and `PF6` routing first, then implement MMC0 enablement with `bus-width=4`, `no-sdio`, `no-mmc`, active-low card detect, and verified VMMC/VQMMC. The host maximum is 150 MHz; identification is negotiated at a lower clock, so we do not need to force a permanent 25 MHz ceiling.
+
+## MMC0 read-only audit results (operator)
+
+```text
+Original corrected DTB SHA-256: 1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d
+150 MHz staged DTB SHA-256: 72e507745b3c99605529905f352d0335c3893fa8604c67f103adbefebcc31d74
+Root oscillator: 26000000 Hz
+MMC0 max-frequency: 150000000 Hz
+MMC0 status: disabled
+MMC0 compatible: allwinner,sun60i-a733-mmc / allwinner,sun20i-d1-mmc
+pinctrl-0: phandle 5; pins PF0, PF1, PF2, PF3, PF4, PF5; function mmc0
+clocks: 2 141 2 140; names ahb mmc
+resets: 2 34; name ahb
+bus-width, cd-gpios, no-sdio, no-mmc: absent
+vmmc-supply, vqmmc-supply, vqmmc33sw-supply, vqmmc18sw-supply: absent
+```
+
+**Decision:** 150 MHz maximum is staged, but SD clock is not physically verified because controller remains disabled. PF0-PF5 are correctly described in the pinmux, but PF6 card detect is not represented. Need *board-specific* vendor DTB/regulator source to ground the AXP8191 supply and card-detect wiring. No invented phandle or bare `status=okay`. Existing measured controller clock tree does not by itself solve `no support for card's volts`. Check vendor regulator driver compiled into the full integration config and I2C bus connectivity before MMC activation.
