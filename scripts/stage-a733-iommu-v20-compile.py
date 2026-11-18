@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Stage A733 IOMMU-v20 for an ISOLATED source-only compiler diagnostic.
+
+Does not build bootable images, modify vendor/stage4 source, or change firmware.
+A successful compile does NOT authorize hardware probing or display DMA use.
+"""
+from __future__ import annotations
+import argparse, hashlib, os, pathlib, shutil, subprocess, sys
+VENDOR=pathlib.Path("/root/opi3w-vendor-6698-work/kernel")
+KERNEL=pathlib.Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/linux")
+OUT=pathlib.Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1")
+FILES=("sunxi-iommu-v2.c","sunxi-iommu-common.c","sunxi-iommu-pgtable.c",
+       "sunxi-iommu-pgtable.h","sunxi-iommu.h")
+def sha(p):
+    h=hashlib.sha256()
+    with p.open("rb") as f:
+        for b in iter(lambda:f.read(1048576),b""): h.update(b)
+    return h.hexdigest()
+def run(cmd,log,env=None):
+    with log.open("a") as f:
+        f.write("\n$ "+" ".join(str(c) for c in cmd)+"\n");f.flush()
+        p=subprocess.run([str(c) for c in cmd],stdout=f,stderr=subprocess.STDOUT,env=env)
+        f.write("exit_code="+str(p.returncode)+"\n")
+    return p.returncode
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--vendor",type=pathlib.Path,default=VENDOR)
+    p.add_argument("--linux",type=pathlib.Path,default=KERNEL)
+    p.add_argument("--out",type=pathlib.Path,default=OUT)
+    p.add_argument("--jobs",type=int,default=2)
+    p.add_argument("--stage-only",action="store_true")
+    a=p.parse_args()
+    if a.out.exists(): sys.exit("STOP: output already exists; choose fresh --out")
+    if a.jobs<1 or a.jobs>16:sys.exit("STOP: jobs must be 1..16")
+    source=a.vendor/"bsp/drivers/iommu"
+    for q in [a.linux/"Makefile",a.linux/"Kconfig",source/"Makefile",*[source/f for f in FILES]]:
+        if not q.is_file():sys.exit("STOP: source missing "+str(q))
+    if not (a.linux/"scripts/config").is_file():sys.exit("STOP: missing Linux scripts/config")
+    if not (a.linux/".config").is_file():sys.exit("STOP: local Linux .config missing")
+    # Staging must not be nested within either input kernel tree.
+    out=a.out.resolve()
+    for root in (a.linux.resolve(),a.vendor.resolve()):
+        if out==root or root in out.parents:sys.exit("STOP: output nested inside an input tree")
+    a.out.mkdir(parents=True)
+    work=a.out/"linux"
+    log=a.out/"build.log"
+    manifest=a.out/"manifest.txt"
+    # Copy the exact patched 6.18 source, including its existing staged uncommitted patches.
+    # cp --reflink=auto is GNU coreutils: falls back to full copy if reflinks unavailable.
+    rc=run(["cp","-a","--reflink=auto",str(a.linux)+"/.",str(work)],log)
+    if rc:sys.exit("STOP: source copy failed; see "+str(log))
+    target=work/"drivers/iommu/aw-v20"
+    target.mkdir(parents=True,exist_ok=False)
+    for name in FILES:shutil.copy2(source/name,target/name)
+    # Keep vendor sources untouched, and NEVER make this driver eligible to link
+    # into a boot image at this stage. This subdir's object target is diagnostic only.
+    (target/"Makefile").write_text(
+        "obj-y += sunxi-iommu-v20.o sunxi-iommu-common.o sunxi-iommu-pgtable.o\n")
+    # Do not put CONFIG_* into the main Kconfig/Makefile yet. The Makefile target
+    # compiles standalone objects without registering any driver in the kernel.
+    manifest.write_text(
+        "A733 IOMMU v20 stage1, source-only compile diagnostic\n"
+        "No Kconfig additions, DTB modifications, or kernel image updates.\n"
+        "Stage Linux source: "+str(a.linux)+"\n"
+        "Stage vendor source: "+str(source)+"\n"
+        "Linux .config SHA256: "+sha(a.linux/".config")+"\n"+
+        "\n".join(name+" SHA256 "+sha(source/name) for name in FILES)+"\n")
+    if a.stage_only:
+        print("STAGED (no compilation):",a.out);return
+    # Running the exact directory target may fail at the first old API/compiler
+    # mismatch. Preserve full diagnostics and return a nonzero code on failure.
+    env=os.environ.copy()
+    env["KBUILD_BUILD_TIMESTAMP"]="1970-01-01"
+    rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=1",
+            "drivers/iommu/aw-v20/"],log,env)
+    with manifest.open("a") as f:f.write("Compile-only return code: "+str(rc)+"\n")
+    print("STAGED:",a.out)
+    print("COMPILE", "PASS (not hardware validated)" if rc==0 else "FAIL (expected until API port)")
+    print("LOG:",log)
+    if rc:sys.exit(rc)
+if __name__=="__main__":main()
