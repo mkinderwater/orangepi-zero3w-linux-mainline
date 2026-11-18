@@ -27,6 +27,12 @@ TARGETS = (
     'allwinner,tcon-tv',
     'allwinner,sunxi-hdmi',
 )
+def dts_path(parts):
+    # The dtc root node is named '/', not a normal path component.
+    # Construct paths consistently for both opening braces and properties.
+    names = [p for p in parts if p and p != '/']
+    return '/' + '/'.join(names)
+
 def parse(path):
     nodes = {}
     stack = []
@@ -42,7 +48,7 @@ def parse(path):
         opened = NODE_OPEN.match(line)
         if opened:
             title = opened.group(1).strip()
-            nodepath = ('/'.join(stack) + '/' + title).replace('//', '/')
+            nodepath = dts_path([*stack, title])
             stack.append(title)
             nodes[nodepath] = {}
             continue
@@ -57,7 +63,7 @@ def parse(path):
             continue
         m = PROP.match(line)
         if m:
-            nodepath = ('/' + '/'.join(stack)).replace('//', '/')
+            nodepath = dts_path(stack)
             if nodepath not in nodes:
                 raise ValueError(f'DTS node path missing while parsing {path}: {nodepath}')
             nodes[nodepath][m.group(1)] = m.group(2)
