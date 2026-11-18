@@ -15,25 +15,27 @@ grep -Eq '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"]sunxi-iommu[.]h[>"]' 
   grep -n -E 'iommu|^[[:space:]]*#[[:space:]]*include' "$DRM/sunxi_drm_debug.c" | head -45 >&2 || :
   exit 1
 }
-# No guessing at header contents. Select a single distinct vendor file and
-# fail if conflicting versions exist in different vendor directories.
+# Vendor's shared BSP API header is the consumer-facing DRM interface.
+# The distinct drivers/iommu copy belongs to its implementation, not this DRM
+# include. Preserve its identity and record both checksums.
 python3 - "$VENDOR" "$TARGET" <<'PY'
 from pathlib import Path
+import hashlib
 import sys
 vendor, target = map(Path, sys.argv[1:])
-found = [p for p in vendor.rglob('sunxi-iommu.h') if p.is_file()]
-if not found:
-    raise SystemExit('STOP: sunxi-iommu.h not found in original vendor tree')
-payloads = {p.read_bytes() for p in found}
-if len(payloads) != 1:
-    for p in found: print(p)
-    raise SystemExit('STOP: conflicting vendor sunxi-iommu.h variants')
-data = found[0].read_bytes()
+shared = vendor / "bsp/include/sunxi-iommu.h"
+internal = vendor / "bsp/drivers/iommu/sunxi-iommu.h"
+if not shared.is_file():
+    raise SystemExit(f"STOP: missing shared BSP header: {shared}")
+data = shared.read_bytes()
 if target.exists() and target.read_bytes() != data:
-    raise SystemExit('STOP: staged header already exists and differs')
+    raise SystemExit("STOP: existing staged header differs from vendor's shared API")
 if not target.exists():
     target.write_bytes(data)
-print('Imported original header from:', found[0])
+for label, file in (("shared BSP API", shared), ("driver-local implementation", internal)):
+    if file.is_file():
+        print(f"{label}: {file}: sha256={hashlib.sha256(file.read_bytes()).hexdigest()}")
+print(f"Imported shared API header to: {target}")
 PY
 # An angle-bracket include does not search the current C file directory.
 # Make the imported vendor header discoverable without replacing mainline IOMMU headers.
