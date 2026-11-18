@@ -118,3 +118,11 @@ SMP: stopping secondary CPUs
 - Subsequent Boot0 follows the panic. It does not identify the reset mechanism. No evidence that the 26 MHz fix eliminates independent spontaneous resets; it eliminates the observed software clock-rate discrepancy.
 - **Next:** inspect `uart-diagnostic-initrd.gz` offline. Check archive entries, mode bits, `/init` file type, first bytes, ELF machine/interpreter or shebang and executable dependencies. Build a corrected minimal initramfs, retaining original kernel and 26 MHz DTB for a controlled second test. Then remove `keep_bootcon` separately.
 - Preserve raw UART capture separately: `Pasted text(20261118-005013).txt`.
+
+## RAM-B script execution rebuild (operator result, November 17)
+
+Diagnostic initramfs `uart-diagnostic-initrd.gz` SHA-256 `1a68a774c6b47081f338bcc8f595b4a154dbd433293cf3ad1b8df31cc7ac919b`; `/init` is executable shebang `#!/bin/busybox sh`. BusyBox is statically linked AArch64 ELF64. Earlier RAM-A kernel `.config` had `CONFIG_BINFMT_ELF=y`, but `CONFIG_BINFMT_SCRIPT` was not enabled, explaining the observed `ENOEXEC` for `/init`.
+
+Isolated build output: `/root/opi3w-m2-work/ram-b-script-fix/obj`. Configuration reported `CONFIG_BINFMT_ELF=y` and `CONFIG_BINFMT_SCRIPT=y` after `olddefconfig`. Operator reports successful `Image` build and copied it to `/home/Image-ram-b-script-fix`, size approximately 4.4 MiB. SHA-256 `67a0a073950bb6c92e2a06e61235e90509ad5d3964703dec70cb4f53e4a339c8`.
+
+**Next:** Boot corrected kernel with same 26 MHz test DTB and original initramfs, unchanged boot arguments. Expect script `/init` to execute, but stable userspace and reboot-free runtime are **not yet demonstrated**. Preserve the original `/mainline/Image` and boot scripts.
