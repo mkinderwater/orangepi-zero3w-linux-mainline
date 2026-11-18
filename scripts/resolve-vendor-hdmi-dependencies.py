@@ -78,6 +78,55 @@ def phandles(nodes):
             result[int(m.group(1),16)] = path
     return result
 
+SPECIFIER_CELLS = {
+    'clocks': '#clock-cells',
+    'assigned-clocks': '#clock-cells',
+    'assigned-clock-parents': '#clock-cells',
+    'resets': '#reset-cells',
+    'power-domains': '#power-domain-cells',
+    'phys': '#phy-cells',
+    'dmas': '#dma-cells',
+    'iommus': '#iommu-cells',
+    'interconnects': '#interconnect-cells',
+    'mboxes': '#mbox-cells',
+}
+
+def resolve_reference_stream(raw, key, id_map, nodes):
+    """Consume [phandle, provider-specifiers...] using provider #*-cells.
+
+    Fail closed for absent providers or unknown cell counts. Never interpret
+    arbitrary specifier values as phandles.
+    """
+    cells = [int(token, 0) for token in VALUE.findall(raw)]
+    direct = key.startswith('pinctrl-') or key == 'remote-endpoint'
+    spec_property = SPECIFIER_CELLS.get(key)
+    if not direct and not spec_property:
+        return ["not parsed: unknown provider cell semantics"]
+    result = []
+    cursor = 0
+    while cursor < len(cells):
+        phandle = cells[cursor]
+        cursor += 1
+        provider = id_map.get(phandle)
+        if provider is None:
+            result.append(f"UNRESOLVED provider phandle 0x{phandle:x}")
+            break
+        args_count = 0
+        if not direct:
+            n = nodes[provider].get(spec_property)
+            nums = VALUE.findall(n or '')
+            if len(nums) != 1:
+                result.append(f"UNRESOLVED {provider}: {spec_property} missing or ambiguous")
+                break
+            args_count = int(nums[0], 0)
+        if args_count < 0 or cursor + args_count > len(cells):
+            result.append(f"INVALID specifier count for {provider}: {args_count}")
+            break
+        args = cells[cursor: cursor+args_count]
+        cursor += args_count
+        result.append(f"provider 0x{phandle:x} -> {provider} ({nodes[provider].get('compatible','no compatible')}); specifiers {args}")
+    return result
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument('vendor_dts',type=pathlib.Path)
@@ -102,8 +151,8 @@ def main():
     lines.append(f'RAM-B DTS: {args.baseline_dts}')
     lines.append(f'Matched display nodes: {len(targets)}')
     lines.append('IMPORTANT: phandle integers are vendor-local, never copy into RAM-B.')
-    lines.append('Clock/reset/power-domain properties are recorded raw, with node IDs resolved;')
-    lines.append('values following a phandle are provider-specific specifiers, NOT necessarily new phandles.')
+    lines.append('Clock/reset/power-domain references resolved by provider cell counts;')
+    lines.append('Unresolved providers/cell counts are reported, never guessed.')
     lines.append('')
     for path in targets:
         props=vendor[path]
@@ -119,15 +168,9 @@ def main():
         for key in sorted(LINKS):
             raw=props.get(key)
             if not raw: continue
-            nums=[int(x,0) for x in VALUE.findall(raw)]
-            provider_list=[]
-            for n in nums:
-                if n in ids:
-                    provider=ids[n]
-                    provider_list.append(f'0x{n:x} -> {provider} ({vendor[provider].get("compatible","no compatible")})')
             lines.append(f'  {key}: {raw}')
-            for v in dict.fromkeys(provider_list):
-                lines.append(f'    candidate phandle match: {v}')
+            for resolved in resolve_reference_stream(raw,key,ids,vendor):
+                lines.append(f'    {resolved}')
         lines.append('')
     lines.append('NEXT: inspect vendor provider #clock-cells/#reset-cells/#power-domain-cells,')
     lines.append('graph endpoints and current A733 Linux CCU/power-domain capabilities before staging a boot DTB.')
