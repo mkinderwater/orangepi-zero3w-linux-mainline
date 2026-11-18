@@ -24,7 +24,12 @@ def main():
     if "iommu_group_ref_get(global_group)" not in src or "iommu_group_put(group);" not in src:
         p.error("Missing expected Stage14 group-lifetime draft")
     before,rem=src.split(OLD_REMOVE,1)
-    removal,after=rem.split(END_REMOVE,1)
+    # Preserve every subsequent function (PM callbacks, registration and adapter).
+    # The first column-zero closing brace ends the remove callback.
+    match=re.search(r"(?m)^}\\s*\\n",rem)
+    if not match:p.error("Cannot isolate remove callback body")
+    removal=rem[:match.end()]
+    after=rem[match.end():]
     old=OLD_REMOVE+removal
     # The callback must not release underlying infrastructure until all clients
     # have been removed by iommu_device_unregister().
@@ -71,9 +76,11 @@ def main():
                    'devm_iounmap(sunxi_iommu->dev, sunxi_iommu->base);',
                    'global_group = NULL;'):
         if old.count(needle)!=1:p.error("Unexpected old teardown occurrence: "+needle)
-    new=before+head+cleaned+END_REMOVE+after
+    new=before+head+cleaned+after
     assert new.count("iommu_device_unregister(&sunxi_iommu->iommu);")==1
     assert new.count("sunxi_pgtable_free_pte_cache(iopte_cache);")>=1
+    for marker in ("static int sunxi_iommu_suspend(", "static int sunxi_iommu_resume(", END_REMOVE):
+        if marker not in new:p.error("Required post-remove code was lost: "+marker)
     a.out.parent.mkdir(parents=True,exist_ok=True)
     a.out.write_text(new)
     a.patch.write_text("".join(difflib.unified_diff(src.splitlines(True),new.splitlines(True),
