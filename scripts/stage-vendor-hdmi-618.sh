@@ -46,6 +46,24 @@ config AW_BSP
 '''
 vendor_k = src / 'drivers/gpu/drm/sunxi_vendor/Kconfig'
 vk = vendor_k.read_text()
+# Vendor nested Kconfig references are absolute-to-srctree paths; after
+# relocating DRM under drivers/gpu/drm/sunxi_vendor they must be rewritten.
+# Rewrite every nested Kconfig's source/rsource path, never source outside
+# the copied DRM subtree.
+import re
+old_prefix = 'bsp/drivers/drm/'
+new_prefix = 'drivers/gpu/drm/sunxi_vendor/'
+for nested in (src / 'drivers/gpu/drm/sunxi_vendor').rglob('Kconfig*'):
+    original = nested.read_text()
+    updated = re.sub(
+        r'(?m)^(\\s*(?:source|rsource|osource|orsource)\\s+["\\\'])'
+        + re.escape(old_prefix),
+        lambda match: match.group(1) + new_prefix,
+        original
+    )
+    if updated != original:
+        nested.write_text(updated)
+vk = vendor_k.read_text()
 if 'config AW_BSP' not in kc and 'config AW_BSP' not in vk:
     vk = compat + vk
     vendor_k.write_text(vk)
