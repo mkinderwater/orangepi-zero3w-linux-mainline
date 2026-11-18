@@ -59,3 +59,11 @@ A proper success requires:
 If the clock now reports 24 MHz but UART still corrupts, do not declare the clock hypothesis disproven or proven until the physical divisor and console co-ownership are checked. If rate is unchanged, inspect PLL_REF parent resolution and the actual booted DTB.
 
 This single-variable test is preparatory. The permanent RAM-B patch should model the A733 RTC-detected crystal accurately, verify the unconditional PLL control writes, and rebuild from a clean 6.18.19 worktree.
+
+## Operator generator result (2026-11-17)
+
+- `ram-b-clock-test.sh` completed after correcting Debian `fdtget` integer type from `d` to `u`.
+- RAM-A control DTB SHA-256: `b63266e8d73611abd2fb693b101f05373134c32ea5784c0899cf969eb00473a1`.
+- 26 MHz candidate DTB SHA-256: `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d`.
+- The generator returned successfully; its single-property diff guard is expected to have passed. Full diff text not independently provided in this result.
+- **Hardware oscillator, UART stability and reboot behaviour remain untested for the candidate.** Next gate: U-Boot read-only RTC, PLL_REF and APB-UART register inspection, then controlled boot if consistent.
