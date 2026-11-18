@@ -83,8 +83,10 @@ def main():
         "#ifdef SEPERATE_DOMAIN_API", "#else",
         "\t.domain_alloc = sunxi_iommu_domain_alloc,",
         "\t.domain_alloc_paging = sunxi_iommu_domain_alloc_paging,","alloc ops")
-    s=one(s,"\t.map = sunxi_iommu_map,","\t.map_pages = sunxi_iommu_map,","map ops")
-    s=one(s,"\t.unmap = sunxi_iommu_unmap,","\t.unmap_pages = sunxi_iommu_unmap,","unmap ops")
+    s=scoped_one(s, "#ifdef SEPERATE_DOMAIN_API", "#else",
+        "\t.map = sunxi_iommu_map,", "\t.map_pages = sunxi_iommu_map,", "map ops")
+    s=scoped_one(s, "#ifdef SEPERATE_DOMAIN_API", "#else",
+        "\t.unmap = sunxi_iommu_unmap,", "\t.unmap_pages = sunxi_iommu_unmap,", "unmap ops")
     s=one(s,"\tsunxi_domain->domain.geometry.aperture_start = 0;",
         "\tsunxi_domain->domain.pgsize_bitmap = SZ_4K;\n\tsunxi_domain->domain.geometry.aperture_start = 0;",
         "domain page size")
