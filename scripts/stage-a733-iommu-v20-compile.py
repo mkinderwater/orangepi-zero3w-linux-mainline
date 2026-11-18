@@ -30,6 +30,7 @@ def main():
     p.add_argument("--out",type=pathlib.Path,default=OUT)
     p.add_argument("--config",type=pathlib.Path,help="Existing Stage 4 kernel configuration file")
     p.add_argument("--jobs",type=int,default=2)
+    p.add_argument("--cross-compile",default="aarch64-linux-gnu-",help="ARM64 cross-toolchain prefix")
     p.add_argument("--stage-only",action="store_true")
     a=p.parse_args()
     if a.out.exists(): sys.exit("STOP: output already exists; choose fresh --out")
@@ -60,6 +61,15 @@ def main():
             "\\( -name '.config' -o -name '*.config' \\) -print\n"
             "Then rerun with --config /absolute/path/to/config; expected SHA256 "
             + EXPECTED_CONFIG_SHA)
+    cfg_text=config.read_text(errors="replace")
+    if "CONFIG_ARM64=y" not in cfg_text:
+        sys.exit("STOP: archived config lacks CONFIG_ARM64=y")
+    gcc=a.cross_compile+"gcc"
+    readelf=a.cross_compile+"readelf"
+    if not shutil.which(gcc):sys.exit("STOP: ARM64 cross-compiler not found: "+gcc)
+    if not shutil.which(readelf):
+        readelf=shutil.which("readelf")
+    if not readelf:sys.exit("STOP: readelf unavailable for ELF verification")
     # Staging must not be nested within either input kernel tree.
     out=a.out.resolve()
     for root in (a.linux.resolve(),a.vendor.resolve()):
@@ -87,6 +97,7 @@ def main():
         "No Kconfig additions, DTB modifications, or kernel image updates.\n"
         "Stage Linux source: "+str(a.linux)+"\n"
         "Stage vendor source: "+str(source)+"\n"
+        "Architecture: arm64\n"+"Cross compiler: "+gcc+"\n"+
         "Validated configuration: "+str(config)+"\n"
         "Linux .config SHA256: "+sha(config)+"\n"+
         "\n".join(name+" SHA256 "+sha(source/name) for name in FILES)+"\n")
@@ -96,6 +107,10 @@ def main():
     # mismatch. Preserve full diagnostics and return a nonzero code on failure.
     env=os.environ.copy()
     env["KBUILD_BUILD_TIMESTAMP"]="1970-01-01"
+    env["ARCH"]="arm64"
+    env["CROSS_COMPILE"]=a.cross_compile
+    env.pop("CC",None)
+    env.pop("HOSTCC",None)
     rc=run(["make","-C",str(work),"olddefconfig"],log,env)
     if not rc:
         rc=run(["make","-C",str(work),"-j"+str(a.jobs),"prepare"],log,env)
@@ -103,11 +118,32 @@ def main():
         with manifest.open("a") as f:f.write("Kernel prepare failed: "+str(rc)+"\n")
         print("PREPARE FAIL; log:",log)
         sys.exit(rc)
-    rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=1",
-            "drivers/iommu/aw-v20/"],log,env)
-    with manifest.open("a") as f:f.write("Compile-only return code: "+str(rc)+"\n")
+    # Explicit single-object targets bypass missing parent Makefile wiring.
+    # Merely building the directory yielded a false PASS in Stage 1.
+    objects=("sunxi-iommu-v2.o","sunxi-iommu-common.o","sunxi-iommu-pgtable.o")
+    status=0
+    for obj in objects:
+        target_obj="drivers/iommu/aw-v20/"+obj
+        rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=0",target_obj],log,env)
+        if rc:
+            status=rc
+            break
+        objpath=work/target_obj
+        if not objpath.is_file() or objpath.stat().st_size==0:
+            with log.open("a") as lf:lf.write("ERROR: Kbuild returned zero but object missing: "+str(objpath)+"\n")
+            status=11
+            break
+        cp=subprocess.run([readelf,"-h",str(objpath)],text=True,capture_output=True)
+        if cp.returncode or "Machine:" not in cp.stdout or "AArch64" not in cp.stdout:
+            with log.open("a") as lf:
+                lf.write("ERROR: object architecture is not AArch64: "+str(objpath)+"\\n"+cp.stdout+cp.stderr)
+            status=12
+            break
+        with manifest.open("a") as mf:
+            mf.write(obj+" SHA256 "+sha(objpath)+" (AArch64 ELF)\\n")
+    with manifest.open("a") as mf:mf.write("Compile-only return code: "+str(status)+"\n")
     print("STAGED:",a.out)
-    print("COMPILE", "PASS (not hardware validated)" if rc==0 else "FAIL (expected until API port)")
+    print("COMPILE", "PASS: all three AArch64 objects generated (not hardware validated)" if status==0 else "FAIL: inspect first compiler error")
     print("LOG:",log)
-    if rc:sys.exit(rc)
+    if status:sys.exit(status)
 if __name__=="__main__":main()
