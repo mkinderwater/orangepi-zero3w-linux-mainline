@@ -27,7 +27,10 @@ if ! make -C "$SRC" O="$OBJ" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
   exit 1
 fi
 mkdir -p "$ART"
-cp "$OBJ/arch/arm64/boot/Image" "$ART/Image-618-vendor-hdmi-pck600"
-cp "$OBJ/.config" "$ART/kernel-pck600.config"
-sha256sum "$ART/Image-618-vendor-hdmi-pck600" "$ART/kernel-pck600.config"
+NAME="${ARTIFACT_NAME:-Image-618-vendor-hdmi-pck600}"
+[[ "$NAME" != */* ]] || { echo "ARTIFACT_NAME must be a filename" >&2; exit 1; }
+[[ ! -e "$ART/$NAME" ]] || { echo "Refusing to overwrite existing artifact: $ART/$NAME" >&2; exit 1; }
+cp "$OBJ/arch/arm64/boot/Image" "$ART/$NAME"
+cp "$OBJ/.config" "$ART/$NAME.config"
+sha256sum "$ART/$NAME" "$ART/$NAME.config"
 echo "Compiled, PCK-600 is untested on hardware. No boot DTB staged."
