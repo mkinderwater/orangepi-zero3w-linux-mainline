@@ -191,3 +191,21 @@ Commit `b25faba` introduces `scripts/fix-a733-iommu-v20-header-guard.py` which S
 The operator's `iommu-v20-companions-retry-results.txt` verifies both `sunxi-iommu-v2.o` and `sunxi-iommu-common.o` as AArch64 ELF. `sunxi-iommu-pgtable.o` fails on implicit `dma_sync_single_for_cpu` / `dma_sync_single_for_device` declarations and missing `DMA_TO_DEVICE`. Public pinned Allwinner `sunxi-iommu-pgtable.c` includes `linux/iommu.h` and `linux/slab.h` but not `linux/dma-mapping.h`. This matches the hypothesis of missing direct DMA mapping API header inclusion; it does not prove correct cache synchronization semantics.
 
 Commit `8d09c4f` adds a guarded staged-only script `scripts/fix-a733-iommu-v20-dma-header.py`: verify SHA256 of exact vendor page-table source, preserve local backup, insert `#include <linux/dma-mapping.h>`, leave other code unchanged. Build only `sunxi-iommu-pgtable.o` afterward. Validate with `readelf -h`, do not confuse this compile check with a linked driver, IOMMU correctness or board readiness. Remaining issues include domain singleton lifecycle, DMA sync direction/address correctness, page-table management, TLB range behavior and complete built-in linkage.
+
+## Stage 3 companion compile PASS, Stage 4 relocation gate
+
+The operator-provided `iommu-v20-pgtable-results.txt` confirms all three vendor source objects compiled as AArch64 ELF: `sunxi-iommu-v2.o`, `sunxi-iommu-common.o` and `sunxi-iommu-pgtable.o`. The page-table retry has no recorded warnings or errors. This is a **three-object compile PASS**, not a linker, modpost, runtime or safety PASS.
+
+Commit `d1fe6d7` adds `scripts/check-a733-iommu-v20-linkage.py`. It verifies all ELF architectures and input SHA256, runs `aarch64-linux-gnu-ld -r` to combine the three objects without producing any executable/boot image, and records the combined SHA256 plus `aarch64-linux-gnu-nm -u` output. Undefined external kernel references from the relocation stage are expected and **must not** be treated as proof of absent exports. This is an intermediate check only; full kernel linkage, address/coherence semantics, domain lifetime, and IOMMU/device-tree hardware attachment are unvalidated.
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/check-a733-iommu-v20-linkage.py
+```
+
+Report files:
+- `/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-linkage-stage4/results.txt`
+- `/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-linkage-stage4/undefined-symbols.txt`
+
+Do not promote the relocatable object to the boot image. Verify whether the vendor `subsys_initcall` registration and driver dependency unresolved references correspond to configuration or missing source, rather than assuming linking three objects is a complete integration.
