@@ -38,9 +38,9 @@ def main():
     driver=a.kernel/"drivers/iommu/aw-v20/sunxi-iommu-v2.c"
     if not driver.is_file() or sha(driver)!=EXPECTED:
         ap.error("staged driver does not match audited SHA256")
-    regs=[r"\\bIOMMU_TTB_REG\\b",r"\\bWRITE_EQUAL_REG\\b",
+    regs=[r"\bIOMMU_TTB_REG\b",r"\bWRITE_EQUAL_REG\b",
           r"^#define IOMMU_PER_SET_ADDR_SIZE",r"^#define IOMMU_HW_SET_COUNT",
-          r"\\bIOMMU_MIC_BYP_REG\\b",r"^static int sunxi_iommu_hw_init",
+          r"\bIOMMU_MIC_BYP_REG\b",r"^static int sunxi_iommu_hw_init",
           r"^void sunxi_enable_device_iommu",r"^static void __sunxi_enable_device_iommu_unlocked",
           r"^static int sunxi_iommu_of_xlate"]
     # Regex patterns explicitly bounded to the small set of decisive sites.
@@ -52,7 +52,7 @@ def main():
     for extra in ("arch/arm/boot/dts","device/config/chips"):
         candidate=a.vendor/extra
         if candidate.is_dir():roots.append(candidate)
-    keys=re.compile(r"iommu|03900000|#iommu-cells|allwinner,iommu-v20|\\biommus\\s*=",re.I)
+    keys=re.compile(r"iommu|03900000|#iommu-cells|allwinner,iommu-v20|\biommus\s*=",re.I)
     scanned=0; matched=0
     for directory in roots:
         if not directory.is_dir():
