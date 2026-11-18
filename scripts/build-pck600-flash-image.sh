@@ -18,11 +18,16 @@ DTB_SHA="c5cc45413f4be4efbf80a1c26c061462e2a9b2e3649a49bf055b008d5209f697"
 TMP=""
 LOOP=""
 MOUNTED=0
+COMPLETE=0
 cleanup() {
   ret=$?
   if (( MOUNTED )); then sync; umount "$TMP/mnt" || ret=1; fi
   if [[ -n "$LOOP" ]]; then losetup -d "$LOOP" || ret=1; fi
   if [[ -n "$TMP" && -d "$TMP" ]]; then rm -rf "$TMP"; fi
+  if (( ! COMPLETE )) && [[ -n "$OUT_IMAGE" && -f "$OUT_IMAGE" ]]; then
+    echo "Removing incomplete output image: $OUT_IMAGE" >&2
+    rm -f -- "$OUT_IMAGE" "$OUT_IMAGE.sha256" "$OUT_IMAGE.manifest.txt"
+  fi
   exit "$ret"
 }
 trap cleanup EXIT
@@ -141,4 +146,5 @@ printf '%s\n' "BOOT-PROBE (NOT HARDWARE TESTED)" \
  "TEST ONLY. Flash on a spare USB/SD device, never the only recovery media." > "$OUT_IMAGE.manifest.txt"
 echo "Image: $OUT_IMAGE"
 cat "$OUT_IMAGE.sha256"
+COMPLETE=1
 echo "Boot image ready for controlled UART test, NOT hardware-tested."
