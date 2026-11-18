@@ -13,7 +13,7 @@ HASHES={"core":"f130ba36dcb140e3e749f3cb77ca7a2df15033843d4d15ae55b8803fa60f2082
 CORE_NAMES=("iommu_init_device","iommu_deinit_device","iommu_group_get","iommu_group_put",
             "iommu_group_alloc","iommu_group_add_device","iommu_group_alloc_default_domain",
             "__iommu_group_alloc_default_domain","iommu_setup_default_domain",
-            "iommu_group_get_for_dev","iommu_probe_device",
+            "iommu_probe_device",
             "iommu_release_device")
 VENDOR_NAMES=("sunxi_iommu_device_group","sunxi_iommu_probe_device",
               "sunxi_iommu_probe_device_finalize","sunxi_iommu_release_device",
