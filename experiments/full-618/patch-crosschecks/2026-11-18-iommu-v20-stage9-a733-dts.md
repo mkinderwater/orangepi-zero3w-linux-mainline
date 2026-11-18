@@ -78,3 +78,14 @@ Additional source-level checks before runtime:
 - Defer enabling master translation until successful domain attachment and DMA page-table synchronization.
 
 Follow-up: compare both compiled Zero3W DTBs read-only, inspect decompiled IOMMU provider and DE0 consumer nodes, and record hashes. No DTB modifications or MMIO access.
+
+## Compiled Zero 3W DTB comparison (operator evidence)
+
+The operator supplied `iommu-v20-stage9-dtb-comparison.txt`:
+
+- `obj-control/.../sun60i-a733-orangepi-zero3w.dtb` SHA256 `116f9c900d75bfae64fc24653c03108dc1cff56bbe3fdbbb9b291bbd25a49fc6`
+- `obj-identity/.../sun60i-a733-orangepi-zero3w.dtb` SHA256 `5868cc38042c7de3d9a714f45215e90083223e2b0e2ec7eb3af87a064fb5e443`
+
+These DTBs are **not byte-identical**, but the extracted IOMMU provider and DE0 consumer fragments match: provider compatible, base `0x03900000`, length `0x20000`, two interrupt IDs 170 and 171, `#iommu-cells=2`, version `0x16`, six clock names, two reset specifiers, master descriptions, provider phandle `0x2c`, and DE0 `iommus = <0x2c 0x08 0x01>`, `status="okay"`. Do not claim the entire device trees are identical; only the examined excerpts match.
+
+A controller-owned shared-TTB design is the leading candidate. The two DTB images still require a full canonical comparison for unrelated changes. No driver or firmware activation until the ownership model, DMA page tables and error paths are verified.
