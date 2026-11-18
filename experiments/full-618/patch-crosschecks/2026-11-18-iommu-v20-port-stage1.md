@@ -128,3 +128,18 @@ python3 scripts/stage-a733-iommu-v20-compile.py \
 ```
 
 **No kernel image or DTB output.** The remaining API changes should only be made after the new compile log verifies geometry symbols are resolved.
+
+## Correcting another false configuration assumption
+
+The operator's `iommu-v20-port-stage1-v2layout` diagnostic still reports missing `IOMMU_VA_BITS`, `SPAGE_SIZE`, `SPD_SIZE`, `IOMMU_PT_MASK` despite the staged Makefile's `ccflags-y`. This indicates the *exact object target* is bypassing or not inheriting that subdirectory flag. The v2 geometry remains verified in the unchanged vendor header; **its use in the actual compiler was not verified**.
+
+Commit `326155a` removes reliance on the `ccflags-y` setting and invokes each exact ARM64 object target with `KCFLAGS=-DCONFIG_AW_IOMMU_V2=1` and `V=1`. It scans the build log for an actual AArch64 compiler command with the define, refusing PASS if evidence is absent. This flag is confined to the isolated diagnostic build, not a source or boot-image patch. The following API errors are real but must be revisited only after this geometry-selector check passes: legacy map/unmap, `domain_alloc`, `pgsize_bitmap` location, `iotlb_sync_map` signature, `of_xlate const` and platform remove callback.
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/stage-a733-iommu-v20-compile.py \
+  --out /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-kcflags
+```
+
+Upload a concise diagnostic with manifest, the first compiler errors, and the first command line containing `-DCONFIG_AW_IOMMU_V2=1`. **No boot/image actions.**
