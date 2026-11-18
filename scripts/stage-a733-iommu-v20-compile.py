@@ -96,9 +96,11 @@ def main():
     # mismatch. Preserve full diagnostics and return a nonzero code on failure.
     env=os.environ.copy()
     env["KBUILD_BUILD_TIMESTAMP"]="1970-01-01"
-    rc=run(["make","-C",str(work),"-j"+str(a.jobs),"olddefconfig","prepare"],log,env)
+    rc=run(["make","-C",str(work),"olddefconfig"],log,env)
+    if not rc:
+        rc=run(["make","-C",str(work),"-j"+str(a.jobs),"prepare"],log,env)
     if rc:
-        with manifest.open("a") as f:f.write("Kernel prepare failed: "+str(rc)+"\\n")
+        with manifest.open("a") as f:f.write("Kernel prepare failed: "+str(rc)+"\n")
         print("PREPARE FAIL; log:",log)
         sys.exit(rc)
     rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=1",
