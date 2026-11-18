@@ -59,7 +59,7 @@ def parse_env_file(path):
             line=line.strip()
             if not line or line.startswith("#") or line.startswith("=> ") or line.startswith("Environment size:"):
                 continue
-            if line.startswith("printenv") or line.startswith("arch=") and False:
+            if line.startswith("printenv"):
                 continue
             if "=" not in line:continue
             k,v=line.split("=",1)
@@ -95,7 +95,7 @@ def main():
     p.add_argument("--env-text",type=Path,help="Optional complete 'printenv' text file from same board")
     a=p.parse_args()
     stop_if(os.geteuid()!=0,"requires root to loop mount ext4")
-    for tool in ("mount","umount","e2fsck","sync"):
+    for tool in ("mount","umount","sfdisk","sync"):
         stop_if(shutil.which(tool) is None,"missing tool "+tool)
     stop_if(not a.input.is_file(),"source image missing")
     stop_if(a.output.exists(),"output already exists, refusing to overwrite")
@@ -128,7 +128,6 @@ def main():
             os.chmod(f,0o644)
             sh("sync")
             sh("umount",m);mounted=False
-            sh("e2fsck","-fn",a.output) if False else None  # Never fsck whole disk image as ext4.
             sh("mount","-t","ext4","-o",f"ro,noload,loop,offset={PART_START},sizelimit={PART_SIZE}",a.output,m)
             mounted=True
             stop_if((m/"uboot.env").read_bytes()!=blob,"on-image env mismatch")
