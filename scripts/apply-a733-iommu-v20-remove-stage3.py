@@ -4,7 +4,7 @@
 Read a Stage 2 generated source, write a new Stage 3 source and patch.
 No input modification, no kernel installation and no hardware activation.
 """
-import argparse,difflib,pathlib,sys
+import argparse,difflib,pathlib,sys,re
 P=pathlib.Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts")
 def main():
     a=argparse.ArgumentParser()
@@ -21,9 +21,12 @@ def main():
                    ".unmap_pages = sunxi_iommu_unmap,"]:
         if s.count(marker)!=1:sys.exit("STOP: Stage 2 API marker not unique: "+marker)
     signature="static int sunxi_iommu_remove(struct platform_device *pdev)"
-    reference="\t\t\t       .remove = sunxi_iommu_remove,"
-    if s.count(signature)!=1 or s.count(reference)!=1:
-        sys.exit("STOP: remove function or registration not uniquely located")
+    remove_matches=list(re.finditer(r"\\.remove\\s*=\\s*sunxi_iommu_remove\\b",s))
+    driver_matches=list(re.finditer(r"static\\s+struct\\s+platform_driver\\s+sunxi_iommu_driver\\b",s))
+    if s.count(signature)!=1 or len(remove_matches)!=1 or len(driver_matches)!=1:
+        sys.exit("STOP: remove function, registration or driver definition not unique")
+    if s.index(signature)>driver_matches[0].start():
+        sys.exit("STOP: remove callback defined after driver registration")
     # Preserve original cleanup logic; wrapper adapts a legacy int return
     # without fabricating a success result.
     # It is not evidence that resource teardown is lifecycle-safe.
@@ -36,10 +39,12 @@ def main():
     )
     # Place after the old implementation and before the registration.
     # There must be exactly one registration reference.
-    pos=s.index(reference)
-    s=s[:pos].replace("\nstatic struct platform_driver\n", "\n"+wrapper+"static struct platform_driver\n") +s[pos:]
-    if s.count(wrapper)!=1:sys.exit("STOP: platform driver declaration not found")
-    s=s.replace(reference,reference.replace("sunxi_iommu_remove,","sunxi_iommu_remove_618,"),1)
+    pos=driver_matches[0].start()
+    s=s[:pos]+wrapper+s[pos:]
+    s,n=re.subn(r"(\\.remove\\s*=\\s*)sunxi_iommu_remove\\b",
+                r"\\1sunxi_iommu_remove_618",s,count=1)
+    if n!=1 or s.count(wrapper)!=1:
+        sys.exit("STOP: failed to apply unique remove adapter")
     x.out.parent.mkdir(parents=True,exist_ok=True)
     patch=x.out.with_suffix(x.out.suffix+".patch")
     if patch.exists():sys.exit("STOP: patch output exists")
