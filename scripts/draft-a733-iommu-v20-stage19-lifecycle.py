@@ -161,6 +161,10 @@ err_enable:
     if (group)
         iommu_group_put(group);
 
+    /* IRQ handlers must stop before controller backing structures are freed. */
+    for (i = 0; i < IOMMU_HW_SET_COUNT; i++)
+        devm_free_irq(&pdev->dev, sunxi_iommu->irq[i], sunxi_iommu);
+
     if (dma_dev == &pdev->dev) {
         sunxi_pgtable_set_dma_dev(NULL);
         dma_dev = NULL;
@@ -224,6 +228,8 @@ err_enable:
     if newrem.index("iommu_device_unregister(") > newrem.index(
             "sunxi_pgtable_free_pte_cache("):
         p.error("Premature cache teardown")
+    if "devm_free_irq(" not in newrem:
+        p.error("IRQ release was omitted")
     if newrem.index("devm_free_irq(") > newrem.index("sunxi_pgtable_free_pte_cache("):
         p.error("IRQ handler remains live after cache destruction")
     if newrem.count("iommu_device_unregister(") != 1:
