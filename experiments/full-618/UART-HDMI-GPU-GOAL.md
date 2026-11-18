@@ -1,0 +1,37 @@
+# Goal: Vendor-equivalent Linux 6.18, UART plus HDMI GPU
+
+**Priority:** Match the actual Orange Pi Zero 3W vendor Linux 6.6.98 hardware feature set on Linux 6.18. No speculative features, no omissions of relevant vendor hardware, no arbitrary new add-ons.
+
+## Target acceptance
+- Keep vendor Boot0, BL31, SCP and U-Boot unchanged.
+- Preserve measured 26 MHz DCXO correction feeding the effective 24 MHz PLL reference.
+- Native UART0 serial console, readable 115200-baud output and interactive RX.
+- Reproduce the **vendor HDMI/display pipeline** on a connected monitor, including mode detection and visible console/framebuffer output.
+- Reproduce the **vendor PowerVR GPU support**, establish 6.18 kernel/firmware/userspace compatibility, and verify hardware acceleration on HDMI. Do not confuse GPU rendering with HDMI scanout.
+- Preserve supported vendor hardware facilities (SD, Wi-Fi, audio, PMIC, clocks, DMA etc.) as part of parity, but do not make unrelated peripheral bring-up prerequisites for the first UART+HDMI demo when the boot arrangement does not require them.
+- Make no board hardware additions or unrelated drivers merely because they are available in Linux 6.18.
+
+## Kernel configuration rule
+The vendor 6.6.98 `.config` is the baseline. Compare it against the actual generated 6.18 `.config`. Resolve version-specific Kconfig names, driver dependencies and BSP-to-mainline substitutions by *function*. Document every deviation. A single identical Kconfig symbol does not prove feature parity and absent names may represent renamed options.
+
+Use:
+
+```bash
+python3 scripts/audit-vendor-kernel-parity.py \
+  /root/opi3w-vendor-6698-work/obj-control/.config \
+  /root/opi3w-m2-work/linux-618-full-integration/artifacts/kernel.config
+```
+
+Verify both paths exist first. Audit writes `vendor-parity/summary.txt` and full `diff.tsv`; it does not change a kernel configuration or boot files.
+
+## Reference baseline
+- Existing live working RAM-B `Image`: SHA-256 `67a0a073950bb6c92e2a06e61235e90509ad5d3964703dec70cb4f53e4a339c8`.
+- Corrected 26 MHz RAM-B DTB: SHA-256 `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d`.
+- Existing 6.18 full build: Image SHA-256 `97c98f2cc6135e938c664936674936ece49a3257935395441f4ceacdb8fb406d`; config SHA-256 `aaad20e5df200caae35dc8e58faaf6e843211d3a4b316ccf24bf55ebaf945351`.
+- Other Zero 3W projects are useful implementation references, not substitutes for vendor parity or our own hardware testing.
+
+## Do not do
+- Do not add generic unrelated Kconfig drivers, extra interfaces or optional dependencies just to make a bigger kernel.
+- Do not consider a PowerVR DRM device equivalent to working HDMI output. Both need tested.
+- Do not replace vendor firmware as part of this kernel-only parity effort.
+- Do not promote builds solely on compilation.
