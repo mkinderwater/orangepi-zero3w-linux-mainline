@@ -105,3 +105,26 @@ python3 scripts/stage-a733-iommu-v20-compile.py \
 ```
 
 This stage remains source-only and does not create any bootable image or enable the display DMA consumer. **Do not interpret disappearance of stub-type errors as a driver port PASS.**
+
+## Exact vendor page-table geometry, verified from 6.6.98 source
+
+Operator report `iommu-v20-port-blockers.txt`, SHA256 `93ff578b4632306c9403f1edd9c5e1841558d465ecc112caf07346d47373eba3` for `sunxi-iommu-pgtable.h`, establishes:
+
+- `IS_ENABLED(CONFIG_AW_IOMMU_V2)` or `CONFIG_AW_IOMMU_V3` selects `AW_IOMMU_PGTABLE_V2`; without either symbol the header defines **none** of the page-table geometry macros. The previous isolated script had no vendor `AW_IOMMU_V2` Kconfig definition, so those errors were *missing test selection*, not evidence the constants had disappeared.
+- V2: `IOMMU_VA_BITS=34`, `IOMMU_PD_SHIFT=22` (4 MiB regions), `IOMMU_PT_SHIFT=12` (4 KiB pages). `IOMMU_PT_MASK`, `SPAGE_SIZE`, `SPD_SIZE`, `SPAGE_ALIGN` follow those exact vendor definitions.
+- V1, **not applicable to the A733 v20 driver**, has `IOMMU_VA_BITS=32`, `IOMMU_PD_SHIFT=20`. Do not substitute V1 definitions.
+- Exact source defines `sunxi_iommu_domain_alloc(unsigned type)` and legacy `.map/.unmap` plus an `iotlb_sync_map` returning void. Those remain real Linux 6.18 ABI porting items.
+- In the correct Linux 6.18 `CONFIG_IOMMU_API` path, `iommu_iotlb_gather` has `start/end`, `dev_iommu_priv_get/set` exist, and `iommu_alloc_resv_region` **requires GFP flags**. The previous unconfigured compile's stub-struct errors have been eliminated.
+
+**Cross-check:** the publicly published [Allwinner BSP v2 header](https://github.com/alexcaoys/allwinner-bsp/blob/656a550c826787e7e72fae58ca793df9e0988ac8/drivers/iommu/sunxi-iommu-pgtable.h) also specifies 34/22/12-bit geometry. Independent source agreement supports the chosen v2 compile configuration, but no hardware DMA test is implied.
+
+**Script fix:** commit `8f7d864` adds `ccflags-y += -DCONFIG_AW_IOMMU_V2=1` **only to the staged directory Makefile**, without defining nonexistent global Kconfig symbols or changing the preserved Stage 4 config. This is a *source compiler test selector*, not a runtime or DTB configuration. It is important for the next run to retain a new output directory and inspect the explicit `sunxi-iommu-v2.o` invocation for the `-DCONFIG_AW_IOMMU_V2=1` flag.
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/stage-a733-iommu-v20-compile.py \
+  --out /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1-v2layout
+```
+
+**No kernel image or DTB output.** The remaining API changes should only be made after the new compile log verifies geometry symbols are resolved.
