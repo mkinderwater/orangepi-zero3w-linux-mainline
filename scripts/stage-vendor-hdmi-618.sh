@@ -50,17 +50,17 @@ vk = vendor_k.read_text()
 # relocating DRM under drivers/gpu/drm/sunxi_vendor they must be rewritten.
 # Rewrite every nested Kconfig's source/rsource path, never source outside
 # the copied DRM subtree.
-import re
 old_prefix = 'bsp/drivers/drm/'
 new_prefix = 'drivers/gpu/drm/sunxi_vendor/'
 for nested in (src / 'drivers/gpu/drm/sunxi_vendor').rglob('Kconfig*'):
     original = nested.read_text()
-    updated = re.sub(
-        r'(?m)^(\\s*(?:source|rsource|osource|orsource)\\s+["\\\'])'
-        + re.escape(old_prefix),
-        lambda match: match.group(1) + new_prefix,
-        original
-    )
+    updated = original
+    for directive in ('source', 'rsource', 'osource', 'orsource'):
+        for quote in ('"', "'"):
+            updated = updated.replace(
+                directive + ' ' + quote + old_prefix,
+                directive + ' ' + quote + new_prefix
+            )
     if updated != original:
         nested.write_text(updated)
 vk = vendor_k.read_text()
