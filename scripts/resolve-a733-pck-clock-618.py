@@ -25,8 +25,8 @@ def definitions(path):
         # Variable declaration can span multiple lines. Capture its initializer
         # only, avoiding the unrelated adjacent register definitions.
         for index,line in enumerate(lines):
-            if re.search(r"\b"+re.escape(var)+r"\b",line) and
-               ("static " in line or "SUNXI_CCU_" in line):
+            if (re.search(r"\b" + re.escape(var) + r"\b", line)
+                    and ("static " in line or "SUNXI_CCU_" in line)):
                 chunk="\n".join(lines[index:index+18])
                 # Stop after first semicolon (typically end of clock declaration).
                 chunk=chunk.split(";",1)[0]+";"
