@@ -224,7 +224,9 @@ err_enable:
     if newrem.index("iommu_device_unregister(") > newrem.index(
             "sunxi_pgtable_free_pte_cache("):
         p.error("Premature cache teardown")
-    if newrem.index("devm_free_irq(") > newrem.index("sunxi_pgtable_free_pte_cache("):\n        p.error("IRQ handler remains live after cache destruction")\n    if newrem.count("iommu_device_unregister(") != 1:
+    if newrem.index("devm_free_irq(") > newrem.index("sunxi_pgtable_free_pte_cache("):
+        p.error("IRQ handler remains live after cache destruction")
+    if newrem.count("iommu_device_unregister(") != 1:
         p.error("Duplicate unregister")
     a.out.parent.mkdir(parents=True, exist_ok=True)
     a.out.write_text(src)
