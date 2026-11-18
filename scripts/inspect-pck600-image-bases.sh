@@ -47,10 +47,10 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
   if [[ ! -d "$MNT/boot" ]]; then
     echo "NO /boot directory in ext4 root; image may use a separate partition or empty root."
     echo "=== top-level regular files ==="
-    find "$MNT" -maxdepth 2 -type f -printf '%P %s bytes\\n' 2>/dev/null | sed -n '1,90p' || :
+    find "$MNT" -maxdepth 2 -type f -printf '%P %s bytes\n' 2>/dev/null | sed -n '1,90p' || :
   else
     echo "=== /boot files (names and sizes) ==="
-    find "$MNT/boot" -maxdepth 5 -type f -printf '%P %s bytes\\n' 2>/dev/null | sed -n '1,110p' || :
+    find "$MNT/boot" -maxdepth 5 -type f -printf '%P %s bytes\n' 2>/dev/null | sed -n '1,110p' || :
     echo "=== candidate boot scripts ==="
     while IFS= read -r -d '' script; do
       echo "SCRIPT: ${script#"$MNT"}"
