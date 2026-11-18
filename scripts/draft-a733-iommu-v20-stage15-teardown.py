@@ -26,7 +26,7 @@ def main():
     before,rem=src.split(OLD_REMOVE,1)
     # Preserve every subsequent function (PM callbacks, registration and adapter).
     # The first column-zero closing brace ends the remove callback.
-    match=re.search(r"(?m)^}\\s*\\n",rem)
+    match=re.search(r"(?m)^}\s*\n",rem)
     if not match:p.error("Cannot isolate remove callback body")
     removal=rem[:match.end()]
     after=rem[match.end():]
