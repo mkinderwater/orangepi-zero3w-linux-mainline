@@ -51,3 +51,23 @@ cp /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-stage7-contract
 ## Status
 
 B1, B2, B3, B4, B5, B6 and B7 remain open. Activation gate remains BLOCKED. Known-good Linux 6.18 kernel, DTB and boot images untouched.
+
+## Stage 7 operator contract result
+
+The operator provided `iommu-v20-stage7-contract.txt`, which reports all expected Linux 6.18 core contract markers present. Audited vendor hash `aa78ce2829693be1c27e93647244f50dd86dc4f386930b2301ba8990b7d19b53`, local `drivers/iommu/iommu.c` hash `f130ba36dcb140e3e749f3cb77ca7a2df15033843d4d15ae55b8803fa60f2082`, relocatable combined object hash `495096f27313a88a758d049832a65949dac5ae88e97338bc660c243eb93c0d84`.
+
+**Contract check PASS; design compatibility FAIL.** The tool confirms core alloc/free/attach delegation and unsafe vendor shared-domain aliasing. No resolution is implied.
+
+## Stage 8 topology source inventory
+
+Commit `1b3501c` adds `scripts/audit-a733-iommu-v20-topology.py`, a fail-closed read-only inventory for the exact staged driver, vendor IOMMU headers and likely A733/sun60 device trees. It extracts line-numbered register definitions, master ID usage, global translation programming and IOMMU consumer references, with source hashes, for topology review. This does NOT establish the translation register semantics or permit enabling the hardware.
+
+Run:
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/audit-a733-iommu-v20-topology.py
+cp /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-stage8-topology.txt /home/
+```
+
+Next compare the captured registers and IOMMU DTS master IDs with the vendor A733 hardware description before selecting either one shared controller context with controlled group attachment or multiple isolated domain instances. No runtime patch yet.
