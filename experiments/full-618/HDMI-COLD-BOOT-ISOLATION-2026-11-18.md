@@ -52,3 +52,23 @@ Power off, connect HDMI **before power-on**, then run the same manual launch. Re
 If Test 1 PASS and Test 3 FAIL, compare U-Boot **pre-prompt** HDMI state and possible display/PHY clocks, FDT mutation and power rail initialization. Prefer firmware-provided options to disable U-Boot splash/HDMI; their existence and support must be verified in vendor U-Boot source before trying them. An environment variable in a *second-stage boot script* cannot disable init already executed before the script.
 
 This test changes **no code or image** and does not establish HDMI scanout. Avoid making another Linux kernel build before determining the result.
+
+## Test 1 operator result: PASS
+
+Hardware result reported 2026-11-18: with HDMI **disconnected at power-on**, the operator interrupted autoboot at U-Boot, connected HDMI **at the U-Boot prompt**, then launched the same PCK600 RAM-shell image. Linux 6.18 reached userspace successfully:
+
+```text
+Freeing unused kernel memory: 320K
+Run /init as init process
+PCK600-RAM-SHELL: /init entered
+PCK600-RAM-SHELL: no MMC/PMIC root discovery
+PCK600-RAM-SHELL: interactive BusyBox follows
+BusyBox v1.37.0 ... built-in shell (ash)
+sh: can't access tty; job control turned off
+```
+
+Compare with previously reported HDMI-connected-**before-power-on** boot on same image: boot loader loads kernel/DTB/initramfs and stops producing UART messages after `BL3-1: Next image spsr = 0x3c5`. With HDMI disconnected throughout, Linux boots and the A733 PCK600 provider binds to DE_SYS, VO and VO1. With HDMI connected/disconnected **after Linux boot**, BusyBox remains responsive.
+
+**Interpretation:** The key differentiator is whether HDMI is connected during the *early pre-prompt firmware initialization*. Merely having the cable attached at U-Boot handoff is not sufficient to cause the silence under this tested sequence. A vendor pre-prompt HDMI clock/display setup or firmware state transition is a leading hypothesis, NOT yet proven causal. The console still prints duplicate lines under `keep_bootcon`; that is a separate issue.
+
+**Next engineering actions:** Preserve this exact test matrix; inspect vendor U-Boot HDMI initialization timing, setup and disable interfaces in the actual source before selecting a no-display firmware-init diagnostic. Avoid speculative U-Boot variables or raw clock/PHY writes. Then verify whether an early firmware-only display disable leaves Linux UART functioning while HDMI is connected at power-on. Finally enable Linux DE/TCON/HDMI graph after firmware conflict is resolved.
