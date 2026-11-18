@@ -44,7 +44,7 @@ def main():
     require(a.jobs>=1, "jobs must be >=1")
     require((a.source/".git").exists(), "local U-Boot source missing")
     require(not a.output.exists(), "refuse to overwrite output directory")
-    for binary in ("git","make", a.cross+"gcc",a.cross+"ld"):
+    for binary in ("git","make","xxd","bc","bison","flex", a.cross+"gcc",a.cross+"ld"):
         require(shutil.which(binary), "missing executable "+binary)
     head=run(["git","rev-parse","HEAD"],cwd=a.source).strip()
     require(head==SOURCE_REV, "source revision differs; inspect before build")
