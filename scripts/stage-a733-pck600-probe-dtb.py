@@ -37,19 +37,25 @@ def main():
     if actual != expected: p.error(f"STOP: DTB is not the SHA-verified RAM-B baseline: {actual}")
     if 'a733_parent_syscon_resource' not in pck.read_text():
         p.error("STOP: updated A733 parent-syscon driver not present")
-    rx=re.compile(r'^\s*#define\s+(CLK_[A-Za-z0-9_]*PCK[A-Za-z0-9_]*)\s+(0x[0-9a-fA-F]+|\d+)\b',re.M)
+    # Source-verified register identity: vendor CLK_R_PPU(19) and A733
+    # CLK_BUS_R_PPU(18) both gate R-CCU + 0x1ac bit 0.
+    rx=re.compile(r'^\\s*#define\\s+(CLK_BUS_R_PPU)\\s+(0x[0-9a-fA-F]+|\\d+)\\b',re.M)
     symbols={n:int(v,0) for n,v in rx.findall(bindings.read_text())}
-    if not symbols:
-        p.error("No modern R-CCU PCK clock symbol exists. STOP. Inspect vendor clock register and integrate before DTB staging.")
-    if a.clock_symbol:
-        if a.clock_symbol not in symbols: p.error(f"Unknown --clock-symbol; candidates: {symbols}")
-        selected=a.clock_symbol
-    elif len(symbols)==1:
-        selected=next(iter(symbols))
-    else:
-        p.error(f"Ambiguous PCK clock symbols, supply verified --clock-symbol: {symbols}")
-    if selected not in driver.read_text():
-        p.error(f"STOP: {selected} not referenced in R-CCU driver. Not a proven clock provider.")
+    if symbols != {"CLK_BUS_R_PPU":18}:
+        p.error(f"STOP: expected CLK_BUS_R_PPU=18; found {symbols}")
+    selected="CLK_BUS_R_PPU"
+    if a.clock_symbol and a.clock_symbol!=selected:
+        p.error(f"Only register-verified {selected} is accepted")
+    source=driver.read_text()
+    if not re.search(r'SUNXI_CCU_GATE_HW\\s*\\(\\s*bus_r_ppu_clk\\s*,.*?0x0*1ac\\s*,\\s*BIT\\(0\\)',source,re.S|re.I):
+        p.error("STOP: modern R-CCU PPU gate 0x1ac BIT(0) not found")
+    vendor=a.root.parent.parent/"opi3w-vendor-6698-work/kernel/bsp/drivers/clk/sunxi-ng/ccu-sun60iw2-r.c"
+    # Vendor R-CCU reference may be outside Stage4 hierarchy.
+    vendor=Path("/root/opi3w-vendor-6698-work/kernel/bsp/drivers/clk/sunxi-ng/ccu-sun60iw2-r.c")
+    if not vendor.is_file():
+        p.error(f"Vendor R-CCU source missing: {vendor}")
+    if not re.search(r'SUNXI_CCU_GATE\\s*\\(\\s*r_ppu_clk\\s*,.*?0x0*1ac\\s*,\\s*BIT\\(0\\)',vendor.read_text(),re.S|re.I):
+        p.error("STOP: vendor R-CCU PPU gate 0x1ac BIT(0) not found")
     soc="/soc@0"
     rccu="/soc@0/clock-controller@7010000"
     parent=soc+"/pck-600@7060000"
@@ -83,9 +89,9 @@ def main():
     print(f"CANDIDATE SHA256: {sha}")
     print(f"PCK clock: {selected} id={symbols[selected]} provider phandle=0x{phandle:x}")
     print(f"PCK-only DTB: {a.output}")
-    print("CAUTION: Clock symbol exists but hardware register equivalence is unverified.")
+    print("Verified source register/gate: vendor and Linux 6.18 R-CCU 0x1ac BIT(0).")\n    print("Parent clock differs (vendor dcxo, Linux 6.18 r-apb0); runtime behavior untested.")
     print("This DTB may cause PCK probe writes to display power-domain delay registers.")
-    print("Do not use until the R-CCU PCK clock register is compared to vendor source.")
+    print("Do not boot without a recovery plan and UART capture; this is an untested power-domain probe.")
     print("No firmware, bootloader, baseline DTB, or display graph altered.")
 
 if __name__=="__main__":
