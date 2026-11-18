@@ -39,3 +39,28 @@ Keep current RAM-B kernel and device tree untouched while conducting H0. Gather 
 ## Next read-only collection
 
 On Debian, inspect the exact RAM-B build `.config` for `PROC_FS`, `SYSFS`, `DEVTMPFS`, `TTY`, `UNIX98_PTYS`, and `DEVPTS_FS`. Capture current DTB's nodes, phandle relationships, clocks, interrupts, reserved memory, UART pinctrl and hardware status. Do not declare missing hardware merely because no sysfs/procfs interface is currently available.
+
+## Confirmed kernel configuration: diagnostic interfaces absent
+
+Operator checked `/root/opi3w-m2-work/ram-b-script-fix/obj/.config`:
+
+```text
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_TTY=y
+CONFIG_UNIX98_PTYS=y
+CONFIG_ARM64=y
+CONFIG_SMP=y
+CONFIG_NR_CPUS=512
+CONFIG_OF=y
+CONFIG_OF_ADDRESS=y
+CONFIG_OF_IRQ=y
+CONFIG_PINCTRL=y
+CONFIG_GPIOLIB=y
+CONFIG_REGULATOR=y
+CONFIG_COMMON_CLK=y
+CONFIG_PSTORE=y
+CONFIG_PSTORE_RAM=y
+```
+
+`CONFIG_PROC_FS` and `CONFIG_SYSFS` were absent from the enabled `CONFIG_...=...` grep output and correlate with the observed mount failures. Verify the explicit `# CONFIG_PROC_FS is not set` / `# CONFIG_SYSFS is not set` lines if needed. `CONFIG_NR_CPUS=512` is a compile-time limit, not the observed physical CPU count (8). Next candidate: isolated build with only PROC_FS and SYSFS enabled, still using the same 26 MHz DTB and unmodified diagnostic initramfs. This is NOT hardware-tested.
