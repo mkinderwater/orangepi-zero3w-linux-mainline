@@ -71,3 +71,18 @@ cp /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-stage8-topology
 ```
 
 Next compare the captured registers and IOMMU DTS master IDs with the vendor A733 hardware description before selecting either one shared controller context with controlled group attachment or multiple isolated domain instances. No runtime patch yet.
+
+## Stage 8 inventory outcome and focused follow-up
+
+The uploaded `iommu-v20-stage8-topology.txt` from the operator confirms the exact staged driver SHA256 `aa78ce2829693be1c27e93647244f50dd86dc4f386930b2301ba8990b7d19b53`. The broad scan found **480 driver pattern matches but truncated 434**, and **0** IOMMU-containing DTS files among only **29 filename-filtered candidates**. This is an insufficient topology conclusion and **not evidence** that the A733 vendor DTS lacks the node.
+
+The pinned public Allwinner v20 driver defines `IOMMU_TTB_REG` at offset `0x0020`. In its `sunxi_iommu_hw_init()`, it writes that global translation-table base via `WRITE_EQUAL_REG(iommu, IOMMU_TTB_REG, dte_addr >> 14)`. The macro writes the same value at a base register and at the second hardware set's `IOMMU_PER_SET_ADDR_SIZE` offset, `0x10000`. Per-master micro-TLB/bypass controls do not establish independent paging domains. This is **evidence of the BSP's shared TTB programming**, not proof that all A733 hardware modes lack additional contexts.
+
+Stage 8b script `scripts/audit-a733-iommu-v20-topology-focused.py` (corrected commit `710c8b4`) now captures the decisive register definitions and macro uses from the exact staged driver and scans **all** DTS/DTSI files under known vendor/kernel DTS roots without filename filters. This is still read-only. Inspect `iommu-v20-stage8b-focused.txt` to validate A733 master-to-IOMMU bindings and compare context programming before selecting the domain architecture.
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/audit-a733-iommu-v20-topology-focused.py
+cp /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-stage8b-focused.txt /home/
+```
