@@ -88,3 +88,33 @@ Decoded using the A733 RTC and CCU definitions being audited:
 **Conclusion:** firmware register state and the RAM-A software clock model are inconsistent. The 26 MHz root-oscillator DTB test is now justified, but stable ttyS0 TX/RX and reboot elimination still require a controlled physical boot. Do not claim the reboot root cause is proven. No register writes were made in this test.
 
 Candidate DTB SHA-256: `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d`.
+
+## Hardware test: 26 MHz DTB, Linux 6.18 reaches init then panics (capture 2026-11-18)
+
+**Single-variable test succeeded at its clock-model goal.** Original RAM-A kernel and `uart-diagnostic-initrd.gz` were loaded; replacement DTB `ram-b-26mhz-test.dtb` at 0x44000000 had `/osc-clk/clock-frequency = 26000000`. Bootargs kept `keep_bootcon` unchanged.
+
+Observed:
+
+```text
+A733UARTDIAG pre-reset: clk=24000000 parent=apb-uart parent_rate=24000000 uartclk=24000000
+A733UARTDIAG post-setup: clk=24000000 parent=apb-uart parent_rate=24000000 uartclk=24000000
+2500000.serial: ttyS0 at MMIO 0x2500000 (irq = 15, base_baud = 1500000) is a 16550A
+A733UARTDIAG pre-register: clk=24000000 parent=apb-uart parent_rate=24000000 uartclk=24000000
+clk: Disabling unused clocks
+Freeing unused kernel memory: 320K
+Run /init as init process
+Failed to execute /init (error -8)
+Run /sbin/init as init process
+Run /etc/init as init process
+Run /bin/init as init process
+Run /bin/sh as init process
+Kernel panic - not syncing: No working init found.
+SMP: stopping secondary CPUs
+[333]HELLO! BOOT0 is starting!
+```
+
+- `-8` is `ENOEXEC` (exec format error). The diagnostic initramfs' `/init` is not executable as presented to the kernel, e.g. invalid/missing shebang, unsupported binary format, or broken interpreter. The **specific cause must be found by inspecting the archive**, not assumed.
+- The kernel progressed to userspace handoff; no late serial corruption is visible in this test. Dual console lines persist because `keep_bootcon` remains present. Native UART **TX during this boot** improved materially; RX and a working interactive prompt remain unverified.
+- Subsequent Boot0 follows the panic. It does not identify the reset mechanism. No evidence that the 26 MHz fix eliminates independent spontaneous resets; it eliminates the observed software clock-rate discrepancy.
+- **Next:** inspect `uart-diagnostic-initrd.gz` offline. Check archive entries, mode bits, `/init` file type, first bytes, ELF machine/interpreter or shebang and executable dependencies. Build a corrected minimal initramfs, retaining original kernel and 26 MHz DTB for a controlled second test. Then remove `keep_bootcon` separately.
+- Preserve raw UART capture separately: `Pasted text(20261118-005013).txt`.
