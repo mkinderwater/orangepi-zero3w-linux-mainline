@@ -15,43 +15,49 @@ from collections import deque
 import hashlib
 import re
 import sys
+
 drm, vendor = map(Path, sys.argv[1:])
 shared = vendor / "bsp/include"
-# Scan all staged vendor DRM C/H files and recursively scan imported headers.
+destination = drm / "_vendor_shared"
+rx = re.compile(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]', re.M)
 queue = deque(f for f in drm.rglob("*") if f.suffix in (".c", ".h"))
 seen = set()
 imported = []
-rx = re.compile(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]', re.M)
+
 while queue:
     file = queue.popleft()
     if file in seen:
         continue
     seen.add(file)
     for name in rx.findall(file.read_text(errors="replace")):
-        if "/" in name or not name.endswith(".h") or not name.startswith("sunxi-"):
+        rel = Path(name)
+        if rel.is_absolute() or ".." in rel.parts or rel.suffix != ".h":
             continue
-        # Only shared vendor headers; do not copy driver-local implementations.
-        choices = [shared / name, shared / "linux" / name]
-        candidate = next((p for p in choices if p.is_file()), None)
-        if candidate is None:
+        # Do not shadow upstream Linux, DRM, or architecture headers.
+        if rel.parts[0] in {"linux", "drm", "asm", "asm-generic", "uapi", "generated"}:
             continue
-        dest = drm / name
-        if dest.exists():
-            if dest.read_bytes() != candidate.read_bytes():
-                # Existing local header may legitimately be an implementation header.
-                # Do not overwrite it.
-                continue
+        candidate = shared / rel
+        if not candidate.is_file():
+            continue
+        target = destination / rel
+        if target.exists():
+            if target.read_bytes() != candidate.read_bytes():
+                raise SystemExit(f"STOP: shared-header mismatch for {rel}")
         else:
-            dest.write_bytes(candidate.read_bytes())
-            imported.append((candidate, dest))
-        queue.append(dest)
-for src, dest in imported:
-    print(f"Imported {src} -> {dest} sha256={hashlib.sha256(dest.read_bytes()).hexdigest()}")
-print(f"Imported {len(imported)} shared BSP headers.")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(candidate.read_bytes())
+            imported.append((candidate, target))
+        # Includes can be nested, e.g. sunxi-log.h -> errcode/sunxi-err.h.
+        queue.append(target)
+
+for origin, target in imported:
+    print(f"Imported {origin} -> {target} sha256={hashlib.sha256(target.read_bytes()).hexdigest()}")
+print(f"Imported {len(imported)} additional transitive vendor BSP headers.")
 PY
-# Angle-bracket includes require an explicit -I path.
+# Only the copied vendor header tree is visible to the vendor DRM driver.
+# Keep original Linux include paths authoritative.
 MK="$DRM/Makefile"
-FLAG='ccflags-y += -I$(src)'
+FLAG='ccflags-y += -I$(src)/_vendor_shared'
 if ! grep -Fqx "$FLAG" "$MK"; then
   printf '\n%s\n' "$FLAG" >> "$MK"
 fi
