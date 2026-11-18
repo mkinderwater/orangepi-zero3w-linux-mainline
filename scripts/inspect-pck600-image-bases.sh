@@ -12,6 +12,9 @@ SOURCES=(
   /root/opi3w-m2-work/opi3w-VBI-PID1-CONTROL.img
   /root/opi3w-m2-work/opi3w-HBI-027-PID1-NORMALIZED.img
 )
+if (( $# > 0 )); then
+  SOURCES=("$@")
+fi
 MNT="$(mktemp -d)"
 cleanup_one() {
   if mountpoint -q "$MNT"; then umount "$MNT"; fi
