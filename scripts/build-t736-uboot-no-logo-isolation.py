@@ -16,7 +16,7 @@ import subprocess
 
 SOURCE_REV = "b791be842935b27268ae3d00e943a9075495f30a"
 SOURCE_DEFAULT = Path("/root/opi3w-uboot-audit/u-boot-orangepi")
-OUT_DEFAULT = Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/uboot-no-logo-isolation-v3")
+OUT_DEFAULT = Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/uboot-no-logo-isolation-v4")
 BOARD_FILE = Path("board/sunxi/board_common.c")
 DEFCONFIG = "sun60iw2p1_t736_defconfig"
 
@@ -96,6 +96,66 @@ def main():
         run(["git","diff","--","arch/arm/cpu/armv7/sunxi/timer.c"],
             cwd=a.output))
 
+    # Keep source compatibility fixes separate from the DRM test patch.
+    # GCC 14 rejects the enum/int mismatch in cmd_process.
+    cmd_h=a.output/"include/command.h"
+    old="int cmd_process(int flag, int argc, char * const argv[],"
+    new="enum command_ret_t cmd_process(int flag, int argc, char * const argv[],"
+    cmd=cmd_h.read_text()
+    require(cmd.count(old)==1,"cmd_process header mismatch")
+    cmd_h.write_text(cmd.replace(old,new))
+
+    # GCC 14 warns about array bounds on a pointer argument.
+    bmu=a.output/"drivers/sunxi_power/bmu.c"
+    old="int bmu_get_ntc_temp(int param[16])"
+    new="int bmu_get_ntc_temp(int param[])"
+    bmu_text=bmu.read_text()
+    require(bmu_text.count(old)==1,"BMU declaration mismatch")
+    bmu.write_text(bmu_text.replace(old,new))
+
+    # SPI-NOR protection must fail closed if a BP status is not in the
+    # vendor lookup table. Do not silently assume zero-length protection.
+    spi=a.output/"drivers/mtd/spi/spi-nor-core.c"
+    spi_text=spi.read_text()
+    operations=[
+        ("static void sunxi_get_locked_range(", "static int sunxi_get_locked_range("),
+        ('\t\t*len = 0;\n\t\treturn;\n\t}\n\tshift = ffs(mask) - 1;',
+         '\t\t*len = 0;\n\t\treturn -EOPNOTSUPP;\n\t}\n\tshift = ffs(mask) - 1;'),
+        ('\t\t\t\t*len = flash_protection[i].boundary;\n\t\t\t\tbreak;\n\t\t\t}\n\t\t}\n',
+         '\t\t\t\t*len = flash_protection[i].boundary;\n\t\t\t\tbreak;\n\t\t\t}\n\t\t}\n'
+         '\t\tif (i == flash_protection_size) {\n'
+         '\t\t\tdev_err(nor->dev, "unrecognized BP protection state: %d\\n", bp_check);\n'
+         '\t\t\treturn -EINVAL;\n\t\t}\n'),
+        ('\t\t\t*ofs, *len, nor->flags, sr, cr);\n}',
+         '\t\t\t*ofs, *len, nor->flags, sr, cr);\n\treturn 0;\n}'),
+        ('\tsunxi_get_locked_range(nor, sr, cr, &lock_offs, &lock_len);\n',
+         '\tint range_ret = sunxi_get_locked_range(nor, sr, cr, &lock_offs, &lock_len);\n'
+         '\tif (range_ret)\n\t\treturn range_ret;\n'),
+        ('\t\tif (sunxi_is_locked_sr_cr(nor, ofs, len,\n'
+         '\t\t\t\t\tstatus_old, config_old))\n\t\t\treturn 0;',
+         '\t\tret = sunxi_is_locked_sr_cr(nor, ofs, len,\n'
+         '\t\t\t\t\tstatus_old, config_old);\n'
+         '\t\tif (ret < 0)\n\t\t\treturn ret;\n'
+         '\t\tif (ret)\n\t\t\treturn 0;'),
+        ('\t\tif (sunxi_is_unlocked_sr_cr(nor, ofs, len,\n'
+         '\t\t\t\t\tstatus_old, config_old))\n\t\t\treturn 0;',
+         '\t\tret = sunxi_is_unlocked_sr_cr(nor, ofs, len,\n'
+         '\t\t\t\t\tstatus_old, config_old);\n'
+         '\t\tif (ret < 0)\n\t\t\treturn ret;\n'
+         '\t\tif (ret)\n\t\t\treturn 0;')
+    ]
+    for old,new in operations:
+        require(spi_text.count(old)==1,"SPI-NOR pattern unmatched: "+repr(old[:90]))
+        spi_text=spi_text.replace(old,new)
+    spi.write_text(spi_text)
+    # Keep full per-file diffs for review; the SPI change alters error handling.
+    for file_name,label in [
+            ("include/command.h","command-signature"),
+            ("drivers/sunxi_power/bmu.c","bmu-parameter"),
+            ("drivers/mtd/spi/spi-nor-core.c","spi-nor-protection")]:
+        (evidence/(label+".patch")).write_text(
+            run(["git","diff","--",file_name],cwd=a.output))
+
     # Vendor Makefile overrides CROSS_COMPILE with a missing bundled Linaro
     # path and attempts extracting proprietary build-tree toolchain archives.
     # Remove only that auto-toolchain-selection block in this isolated clone.
@@ -116,7 +176,9 @@ def main():
       +m[selector:])
     makefile.write_text(m)
     changed=set(run(["git","diff","--name-only"],cwd=a.output).splitlines())
-    require(changed=={str(BOARD_FILE),"Makefile","arch/arm/cpu/armv7/sunxi/timer.c"},
+    require(changed=={str(BOARD_FILE),"Makefile","arch/arm/cpu/armv7/sunxi/timer.c",
+                      "include/command.h","drivers/sunxi_power/bmu.c",
+                      "drivers/mtd/spi/spi-nor-core.c"},
             "unexpected changed files after toolchain isolation: "+repr(changed))
     run(["git","diff","--check"],cwd=a.output)
     (evidence/"isolated-build-environment.patch").write_text(
@@ -128,6 +190,7 @@ def main():
         "Build-only change: remove vendor bundled-toolchain extraction, use system cross compiler.\n"
         "Build IN TREE because vendor sunxi_challenge generator assumes source cwd.\n"
         "Vendor watchdog fix: correct 3 reversed writel(value,address) calls.\n"
+        "Build-source fixes: cmd_process enum, BMU parameter type, fail-closed SPI NOR BP lookup.\n"
         "Firmware Boot0/BL31/SCP and existing images UNCHANGED.\n"
         "The actual installed U-Boot is 2018.07-orangepi-config-dirty,\n"
         "whereas this source is a 2018.05-derived branch.\n"
@@ -138,7 +201,8 @@ def main():
     env.update({"ARCH":"arm","CROSS_COMPILE":a.cross})
     build=a.output
     def do_make(targets,log):
-        args=["make","-C",str(a.output),"CROSS_COMPILE="+a.cross]+targets
+        args=["make","-C",str(a.output),"CROSS_COMPILE="+a.cross,
+              "KCFLAGS=-Wno-error=array-bounds -Wno-error=attributes -Wno-error=address-of-packed-member"]+targets
         with (evidence/log).open("w") as writer:
             p=subprocess.Popen(args,env=env,stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT,text=True)
