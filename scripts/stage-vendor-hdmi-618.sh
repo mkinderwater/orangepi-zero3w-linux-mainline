@@ -27,8 +27,18 @@ rsync -a "$VENDOR/bsp/drivers/drm/" "$SRC/drivers/gpu/drm/sunxi_vendor/"
 # Vendor display ABI headers live outside the DRM source directory.
 # Import only headers actually needed for this display implementation.
 for header in sunxi_drm.h; do
-  candidate="$VENDOR/include/video/$header"
-  [[ -f "$candidate" ]] || { echo "Missing vendor header: $candidate" >&2; exit 1; }
+  candidate=""
+  for prefix in "$VENDOR/include/video" "$VENDOR/bsp/include/video" "$VENDOR/bsp/drivers/drm/include/video"; do
+    if [[ -f "$prefix/$header" ]]; then
+      candidate="$prefix/$header"
+      break
+    fi
+  done
+  [[ -n "$candidate" ]] || {
+    echo "STOP: required $header not found in known vendor include directories" >&2
+    find "$VENDOR" -name "$header" -print 2>/dev/null | head -20 >&2 || :
+    exit 1
+  }
   mkdir -p "$SRC/include/video"
   if [[ -e "$SRC/include/video/$header" ]]; then
     cmp -s "$candidate" "$SRC/include/video/$header" || {
@@ -37,6 +47,7 @@ for header in sunxi_drm.h; do
   else
     cp "$candidate" "$SRC/include/video/$header"
   fi
+  echo "Imported vendor header: $candidate"
 done
 # Vendor Makefile uses its original bsp/drivers/drm/ absolute source path
 # for header search. Relocate those paths to the new DRM subtree.
