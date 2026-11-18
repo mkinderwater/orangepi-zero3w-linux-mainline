@@ -54,3 +54,9 @@ python3 scripts/report-vendor-hardware-parity.py \
 ```
 
 Report: `/root/opi3w-m2-work/linux-618-full-integration/vendor-parity/hardware-focus/summary.txt` and `hardware-differences.tsv`.
+
+## Targeted parity result, first pass
+
+Operator report counted 1,698 hardware-related Kconfig symbol differences: 561 vendor-enabled missing/renamed, 56 newly enabled, 1,081 other. This is **not** proof of 561 missing drivers. Critical confirmed symbols: vendor `CONFIG_DRM=y`, current 6.18 `CONFIG_DRM=n`; vendor A733 BSP modules `CONFIG_AW_DRM=y`, `AW_DRM_DE=y`, `AW_DRM_HDMI20=y`, `AW_DRM_HDMI_TX=y`, `AW_DRM_TCON=y`, `AW_DRM_TCON_TV=y`, `AW_DRM_PHY=y` are not present in the selected 6.18 config. The existing booted 6.18 native UART works despite `AW_UART_NG` being absent, so do not replace it unless hardware behavior requires it.
+
+**Next task:** Inventory *actual* 6.6 vendor source paths and compatible strings for display engine, TCON, HDMI TX, PHY and GPU, then implement this same board's display function on 6.18 (port minimal vendor driver pieces if no equivalent), rather than toggling arbitrary DRM config flags. The candidate 6.18 build cannot be called HDMI-capable until the display engine, HDMI mode setting and PowerVR hardware path have each been proven. Run `bash scripts/inventory-vendor-display-stack.sh` to generate `vendor-display-inventory/summary.txt`. The script is read-only. Maintain the corrected 26 MHz DTB model and known-working ttyS0.
