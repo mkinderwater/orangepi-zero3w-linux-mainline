@@ -101,7 +101,28 @@ while true; do sleep 5; done
             stdout=subprocess.DEVNULL)
         run("dumpimage","-T","script","-p","0","-o",str(temp/"decoded.cmd"),str(temp/"stage2.scr"),
             stdout=subprocess.DEVNULL)
-        require((temp/"decoded.cmd").read_bytes()==(temp/"stage2.cmd").read_bytes(),"U-Boot script roundtrip mismatch")
+        # mkimage -T script stores a legacy multi-image payload: a big-endian
+        # command length, a zero terminator, then the command text padded
+        # with up to three NUL bytes. dumpimage -p 0 may return this wrapper,
+        # rather than the unwrapped .cmd bytes.
+        source=(temp/"stage2.cmd").read_bytes()
+        extracted=(temp/"decoded.cmd").read_bytes()
+        def verified_script_payload(data, plain):
+            import struct
+            if data==plain:
+                return True
+            if len(data)<8:
+                return False
+            n,terminator=struct.unpack_from(">II",data)
+            if n!=len(plain) or terminator!=0:
+                return False
+            payload=data[8:]
+            if not payload.startswith(plain):
+                return False
+            padding=payload[len(plain):]
+            return len(padding)<=3 and padding==b"\\x00"*len(padding)
+        require(verified_script_payload(extracted,source),
+                "U-Boot script payload header, text or padding mismatch")
         shutil.copyfile(a.input,a.output)
         mounted=False
         success=False
