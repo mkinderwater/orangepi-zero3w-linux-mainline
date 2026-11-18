@@ -47,7 +47,7 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
   echo "=== Root and /boot quick inventory ==="
   ls -ld "$MNT" "$MNT/boot" "$MNT/boot/mainline" 2>&1 || :
   if [[ -d "$MNT/boot" ]]; then
-    find "$MNT/boot" -maxdepth 4 -type f \( -name "*.scr" -o -name "*.cmd" -o -name "*Image*" -o -name "*initrd*" -o -name "*ram-b*.dtb" -o -name "*uart*.dtb" \) -printf "%P %s bytes\\n" 2>/dev/null | sed -n "1,100p" || :
+    find "$MNT/boot" -maxdepth 4 -type f \( -name "*.scr" -o -name "*.cmd" -o -name "*Image*" -o -name "*initrd*" -o -name "*ram-b*.dtb" -o -name "*uart*.dtb" \) -printf "%P %s bytes\n" 2>/dev/null | sed -n "1,100p" || :
     echo "=== U-Boot script commands ==="
     while IFS= read -r -d "" script; do
       echo "SCRIPT: ${script#"$MNT"}"
@@ -65,7 +65,7 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
     [[ -n "$OFFSET_FAT" ]] || continue
     FATMNT="$(mktemp -d)"
     if mount -t vfat -o "ro,loop,offset=$OFFSET_FAT,sizelimit=$LIMIT_FAT" "$IMAGE" "$FATMNT"; then
-      find "$FATMNT" -maxdepth 4 -type f -printf "%P %s bytes\\n" 2>/dev/null | sed -n "1,90p" || :
+      find "$FATMNT" -maxdepth 4 -type f -printf "%P %s bytes\n" 2>/dev/null | sed -n "1,90p" || :
       while IFS= read -r -d "" file; do
         echo "FAT BOOT SCRIPT: ${file#"$FATMNT"}"
         strings -a -n 4 "$file" | sed -n "1,100p" || :
