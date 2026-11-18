@@ -16,7 +16,7 @@ import subprocess
 
 SOURCE_REV = "b791be842935b27268ae3d00e943a9075495f30a"
 SOURCE_DEFAULT = Path("/root/opi3w-uboot-audit/u-boot-orangepi")
-OUT_DEFAULT = Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/uboot-no-logo-isolation-v2")
+OUT_DEFAULT = Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/uboot-no-logo-isolation-v3")
 BOARD_FILE = Path("board/sunxi/board_common.c")
 DEFCONFIG = "sun60iw2p1_t736_defconfig"
 
@@ -74,6 +74,28 @@ def main():
     run(["git","diff","--check"],cwd=a.output)
     patch=run(["git","diff","--",str(BOARD_FILE)],cwd=a.output)
     (evidence/"no-logo-only.patch").write_text(patch)
+    # Correct a confirmed vendor watchdog writel(value,address) argument bug.
+    # The checked-in U-Boot source passes register values as addresses (0/1),
+    # which modern GCC rightfully flags as out-of-bounds writes.
+    timer=a.output/"arch/arm/cpu/armv7/sunxi/timer.c"
+    timer_text=timer.read_text()
+    timer_edits={
+        "writel(timers->wdog[0].mode, 0);":
+            "writel(0, &(timers->wdog[0].mode));",
+        "writel(timers->wdog[0].cfg, 1);":
+            "writel(1, &(timers->wdog[0].cfg));",
+        "writel(timers->wdog[0].mode, 1);":
+            "writel(1, &(timers->wdog[0].mode));",
+    }
+    for old,new in timer_edits.items():
+        require(timer_text.count(old)==1,
+                "watchdog write pattern absent or ambiguous: "+old)
+        timer_text=timer_text.replace(old,new)
+    timer.write_text(timer_text)
+    (evidence/"watchdog-write-fix.patch").write_text(
+        run(["git","diff","--","arch/arm/cpu/armv7/sunxi/timer.c"],
+            cwd=a.output))
+
     # Vendor Makefile overrides CROSS_COMPILE with a missing bundled Linaro
     # path and attempts extracting proprietary build-tree toolchain archives.
     # Remove only that auto-toolchain-selection block in this isolated clone.
@@ -94,7 +116,7 @@ def main():
       +m[selector:])
     makefile.write_text(m)
     changed=set(run(["git","diff","--name-only"],cwd=a.output).splitlines())
-    require(changed=={str(BOARD_FILE),"Makefile"},
+    require(changed=={str(BOARD_FILE),"Makefile","arch/arm/cpu/armv7/sunxi/timer.c"},
             "unexpected changed files after toolchain isolation: "+repr(changed))
     run(["git","diff","--check"],cwd=a.output)
     (evidence/"isolated-build-environment.patch").write_text(
@@ -105,6 +127,7 @@ def main():
         "Change: replace two logo calls in board_env_late_init with print markers.\n"
         "Build-only change: remove vendor bundled-toolchain extraction, use system cross compiler.\n"
         "Build IN TREE because vendor sunxi_challenge generator assumes source cwd.\n"
+        "Vendor watchdog fix: correct 3 reversed writel(value,address) calls.\n"
         "Firmware Boot0/BL31/SCP and existing images UNCHANGED.\n"
         "The actual installed U-Boot is 2018.07-orangepi-config-dirty,\n"
         "whereas this source is a 2018.05-derived branch.\n"
