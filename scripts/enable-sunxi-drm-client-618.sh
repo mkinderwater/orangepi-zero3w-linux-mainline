@@ -13,13 +13,35 @@ for symbol in DRM DRM_CLIENT DRM_CLIENT_LIB DRM_CLIENT_SELECTION DRM_FBDEV_EMULA
     echo "NOTE: ${symbol} not represented in prior config"
   }
 done
+# Kconfig symbols DRM_CLIENT_SELECTION and DRM_CLIENT_LIB have no prompts.
+# The vendor DRM driver must select its own DRM client dependency.
+python3 - "$SRC/drivers/gpu/drm/sunxi_vendor/Kconfig" <<'PY'
+from pathlib import Path
+import re
+import sys
+p = Path(sys.argv[1])
+original = p.read_text()
+pattern = r'(?m)^(config AW_DRM\n(?:[^\n]*\n)*?\s*depends on DRM && AW_BSP\n)'
+matches = list(re.finditer(pattern, original))
+if len(matches) != 1:
+    raise SystemExit(f"STOP: expected one AW_DRM definition/dependency, found {len(matches)}")
+start = matches[0].end()
+section = original[start:original.find("\nconfig ", start) if "\nconfig " in original[start:] else len(original)]
+if "select DRM_CLIENT_SELECTION" not in section:
+    updated = original[:start] + "\tselect DRM_CLIENT_SELECTION\n" + original[start:]
+    p.write_text(updated)
+    print("AW_DRM now selects DRM_CLIENT_SELECTION")
+else:
+    print("AW_DRM client selection already wired")
+PY
 cp "$CONFIG" "$ROOT/obj/.config.pre-drm-client-618"
+
 CFG="$SRC/scripts/config"
-"$CFG" --file "$CONFIG" -e DRM_CLIENT_SELECTION -e DRM_FBDEV_EMULATION
+"$CFG" --file "$CONFIG" -e FB -e DRM_FBDEV_EMULATION -e FRAMEBUFFER_CONSOLE
 make -C "$SRC" O="$ROOT/obj" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- olddefconfig  >"$ROOT/config-drm-client-618.log" 2>&1 || {
    tail -80 "$ROOT/config-drm-client-618.log"; exit 1;
  }
-for symbol in DRM DRM_CLIENT_LIB DRM_CLIENT_SELECTION DRM_FBDEV_EMULATION; do
+for symbol in DRM DRM_CLIENT DRM_CLIENT_LIB DRM_CLIENT_SELECTION DRM_FBDEV_EMULATION; do
   grep -qx "CONFIG_${symbol}=y" "$CONFIG" || {
     echo "STOP: CONFIG_${symbol} not built-in after dependency resolution" >&2
     grep -E '^(# )?CONFIG_DRM_(CLIENT|FBDEV)' "$CONFIG" || :
