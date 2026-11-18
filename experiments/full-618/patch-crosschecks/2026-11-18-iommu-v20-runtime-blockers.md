@@ -65,3 +65,30 @@ The Stage 3 `void` platform-remove wrapper only resolves an API signature. It do
 5. Only after documented independent review of runtime safety consider an isolated hardware test using a separately recoverable image, never the known-good baseline.
 
 **Do not mark a successful object compile or relocatable link as hardware ready.**
+
+## Stage 6 source-only draft: B1/B3/B4
+
+**Status: design experiment only, NOT a resolution of the critical blockers.**
+
+Commits `95ca823` and `207a3e4` add:
+
+- `scripts/draft-a733-iommu-v20-domain-stage6.py`: verifies exact audited Stage 5 source hash `aa78ce2829693be1c27e93647244f50dd86dc4f386930b2301ba8990b7d19b53` and exact source anchors, then writes a **separate** draft C file and unified patch, never altering the staged input.
+- `scripts/test-a733-iommu-v20-domain-stage6.py`: tests fail-closed single-anchor transformations and (if available) the exact audited source.
+
+The draft explores conservative containment, not true ownership redesign:
+1. Return `NULL` rather than give the same domain pointer to a second core allocator invocation.
+2. On hardware init failure, clear the global pointer, release the SG buffer and unwind the existing page-table allocation. Refuse to publish a valid domain on a failed init.
+3. Clear `global_iommu_domain` before releasing its allocation.
+4. Require a non-NULL verified device owner, controller and previously initialized global domain in `attach_dev()`. **Still does not implement hardware domain binding.**
+
+**Known unresolved problems:** no locking or safe concurrent lifetime; global pgtable parameter state and shared `global_group` remain, and the IOMMU HW init and teardown side effects are not rolled back; device release may race mapping; DMA mapping/coherence B2 and length B6, map rollback B5, error propagation and full Linux 6.18 IOMMU core ownership contract are not solved. Need full source-level inspection, fault-injection tests and hardware documentation before selecting a final design. `NULL` for a second allocation may simply cause Linux's core to fail default-domain setup. Do not enable the device-tree `iommus` property or boot a modified image.
+
+Run only offline tests and generate source:
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 -m unittest -v scripts/test-a733-iommu-v20-domain-stage6.py
+python3 scripts/draft-a733-iommu-v20-domain-stage6.py
+```
+
+Review the generated `iommu-v20-domain-stage6-draft.c.patch` and run a clean, separate compile only after verifying the source. Never promote the draft into the operational kernel tree.
