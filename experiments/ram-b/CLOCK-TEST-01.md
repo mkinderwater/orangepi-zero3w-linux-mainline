@@ -126,3 +126,18 @@ Diagnostic initramfs `uart-diagnostic-initrd.gz` SHA-256 `1a68a774c6b47081f338bc
 Isolated build output: `/root/opi3w-m2-work/ram-b-script-fix/obj`. Configuration reported `CONFIG_BINFMT_ELF=y` and `CONFIG_BINFMT_SCRIPT=y` after `olddefconfig`. Operator reports successful `Image` build and copied it to `/home/Image-ram-b-script-fix`, size approximately 4.4 MiB. SHA-256 `67a0a073950bb6c92e2a06e61235e90509ad5d3964703dec70cb4f53e4a339c8`.
 
 **Next:** Boot corrected kernel with same 26 MHz test DTB and original initramfs, unchanged boot arguments. Expect script `/init` to execute, but stable userspace and reboot-free runtime are **not yet demonstrated**. Preserve the original `/mainline/Image` and boot scripts.
+
+## RAM-B first successful /init shell (operator hardware log)
+
+Image `Image-ram-b-script-fix`, SHA-256 `67a0a073950bb6c92e2a06e61235e90509ad5d3964703dec70cb4f53e4a339c8`, with 26 MHz test DTB and original diagnostic initramfs. Newly built kernel config includes `CONFIG_BINFMT_SCRIPT=y` and `CONFIG_BINFMT_ELF=y`.
+
+```text
+Freeing unused kernel memory: 320K
+Run /init as init process
+mount: mounting proc on /proc failed: No such device
+BusyBox v1.37.0 (Debian 1:1.37.0-6+b9) built-in shell (ash)
+sh: can't access tty; job control turned off
+~ #
+```
+
+**Observed hardware PASS:** initramfs script now executes, BusyBox ash shell prompt appears, serial output readable into userspace. **Pending:** prove typed UART RX commands work; inspect `CONFIG_PROC_FS` (likely disabled, not verified), controlling tty setup and devpts/console access; quantify uptime and resets. No LKG promotion yet. Do not conflate the missing proc filesystem with a UART defect.
