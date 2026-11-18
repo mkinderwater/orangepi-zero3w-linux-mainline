@@ -141,3 +141,7 @@ sh: can't access tty; job control turned off
 ```
 
 **Observed hardware PASS:** initramfs script now executes, BusyBox ash shell prompt appears, serial output readable into userspace. **Pending:** prove typed UART RX commands work; inspect `CONFIG_PROC_FS` (likely disabled, not verified), controlling tty setup and devpts/console access; quantify uptime and resets. No LKG promotion yet. Do not conflate the missing proc filesystem with a UART defect.
+
+## Interactive UART TX/RX proved (operator hardware test)
+
+At the RAM-B `~ #` BusyBox ash prompt, typed `echo "RAM-B UART RX/TX PASS"` executed and printed exactly `RAM-B UART RX/TX PASS`. Typed `uname -a` executed and returned `Linux (none) 6.18.19+ #1 SMP Tue Nov 17 18:54:09 CST 2026 aarch64 GNU/Linux`. Thus native serial input and output both work at the shell level. `cat /proc/uptime` returned `sh: cat: not found`; do not mistake this for proof about kernel uptime because the `cat` applet is not found and the earlier `/proc` mount failed with `No such device`. Stability time and reset-free endurance remain untested.
