@@ -29,7 +29,7 @@ trap cleanup EXIT
 die() { echo "STOP: $*" >&2; exit 1; }
 [[ "$(id -u)" -eq 0 ]] || die "run as root"
 [[ -n "$BASE_IMAGE" && -f "$BASE_IMAGE" ]] || die "BASE_IMAGE must name a previously boot-tested disk .img"
-for t in losetup mount umount blkid sfdisk sha256sum python3 dumpimage tune2fs e2fsck stat cmp; do
+for t in losetup lsblk mount umount blkid sfdisk sha256sum python3 dumpimage e2fsck stat cmp; do
   command -v "$t" >/dev/null || die "Missing tool $t"
 done
 [[ "$BASE_IMAGE" != "$OUT_IMAGE" ]] || die "BASE_IMAGE and OUT_IMAGE must differ"
@@ -99,7 +99,7 @@ def replace(src,dst):
         os.fsync(fd)
     finally:
         os.close(fd)
-for i in (1,3): replace(sys.argv[i-1],sys.argv[i])
+for i in (1,3): replace(sys.argv[i],sys.argv[i+1])
 PY
 cmp "$KERNEL" "$target$KERNEL_TARGET" || die "kernel copy mismatch"
 cmp "$DTB" "$target$DTB_TARGET" || die "DTB copy mismatch"
@@ -117,7 +117,6 @@ umount "$TMP/mnt"
 MOUNTED=0
 losetup -d "$LOOP"
 LOOP=""
-e2fsck -fn "$PART" >/dev/null 2>&1 || : # partition device no longer exists; fsck below uses offset loop
 # Verify final image partition and payloads read-only.
 LOOP="$(losetup --find --show --partscan --read-only "$OUT_IMAGE")"
 mapfile -t roots < <(lsblk -nr -o PATH,FSTYPE "$LOOP" | awk '$2=="ext4" {print $1}')
@@ -129,8 +128,8 @@ mount -o ro -t ext4 "${roots[0]}" "$TMP/mnt"
 MOUNTED=1
 cmp "$KERNEL" "$TMP/mnt$KERNEL_TARGET" || die "Final image kernel differs"
 cmp "$DTB" "$TMP/mnt$DTB_TARGET" || die "Final image DTB differs"
-cmp "$TMP/stage2.cmd" <(dumpimage -T script -p 0 "$TMP/mnt$STAGE2" 2>/dev/null) ||
-  die "Stage2 changed"
+dumpimage -T script -p 0 -o "$TMP/stage2-after.cmd" "$TMP/mnt$STAGE2" >/dev/null 2>&1 || die "Cannot re-read stage2"
+cmp "$TMP/stage2.cmd" "$TMP/stage2-after.cmd" || die "Stage2 changed"
 # firmware prefix unchanged. The first 32 MiB contain vendor boot firmware.
 cmp -n 33554432 "$BASE_IMAGE" "$OUT_IMAGE" || die "Firmware prefix differs"
 sha256sum "$OUT_IMAGE" > "$OUT_IMAGE.sha256"
