@@ -209,3 +209,26 @@ Report files:
 - `/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-linkage-stage4/undefined-symbols.txt`
 
 Do not promote the relocatable object to the boot image. Verify whether the vendor `subsys_initcall` registration and driver dependency unresolved references correspond to configuration or missing source, rather than assuming linking three objects is a complete integration.
+
+## Stage 4 relocatable linkage PASS (operator artifacts)
+
+The user supplied `results.txt` and `undefined-symbols.txt`. All three ARM64 objects linked with `aarch64-linux-gnu-ld -r`, exit code **0**. Combined `iommu-v20-combined.o` SHA256: `495096f27313a88a758d049832a65949dac5ae88e97338bc660c243eb93c0d84`. Exactly **79** unresolved external symbols remain, including `__dma_sync_single_for_cpu`, `__dma_sync_single_for_device`, `iommu_device_register`, `dev_iommu_priv_set`, clock/reset, sysfs and other kernel references. **None in the uploaded list are unresolved `sunxi_*` cross-object references.** This is expected for a relocatable object; it does not prove that all symbols link into the configured kernel or that the driver can run.
+
+## Stage 5: read-only domain/DMA evidence
+
+Commit `5899c3e` adds `scripts/audit-a733-iommu-v20-lifecycle-dma.py`, which refuses unknown combined-object hashes and extracts bounded, line-numbered source regions for:
+
+- Singleton `global_iommu_domain`, alloc/free, hardware-init handling and per-device attachment/release.
+- Map/unmap page-count math, error propagation and IOTLB/PTW invalidation.
+- Page-table DMA allocation/mapping, `dma_sync_single_for_cpu/device` addresses and CPU/IOMMU physical-address conversions.
+
+The audit is **read only** and does not alter any kernel, image or firmware. Run:
+
+```sh
+cd /root/orangepi-zero3w-linux-mainline/orangepi-zero3w-linux-mainline
+git pull --ff-only origin work/linux-6.18-full-integration
+python3 scripts/audit-a733-iommu-v20-lifecycle-dma.py
+cp /root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-lifecycle-dma-audit.txt /home/
+```
+
+Upload `/home/iommu-v20-lifecycle-dma-audit.txt`. **No Stage 5 runtime patch should be proposed until the detailed source semantics are checked.**
