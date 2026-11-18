@@ -49,6 +49,22 @@ class Check(unittest.TestCase):
         self.assertIn("global_group = NULL;",self.remove)
         self.assertIn("global_iommu_dev = NULL;",self.remove)
         self.assertIn("if (dma_dev == dev)",self.probe)
+    def test_pm_callbacks_retained(self):
+        self.assertIn("static int sunxi_iommu_suspend(",self.text)
+        self.assertIn("static int sunxi_iommu_resume(",self.text)
+        self.assertIn("const struct dev_pm_ops sunxi_iommu_pm_ops",self.text)
+    def test_device_tree_driver_table_retained(self):
+        self.assertIn("static const struct of_device_id sunxi_iommu_dt_ids[]",self.text)
+        self.assertIn("static struct platform_driver",self.text)
+    def test_remove_function_boundary(self):
+        # PM callback must remain outside remove body, after its closing brace.
+        self.assertIn("return 0;\n}\n",self.remove)
+        self.assertIn("static int sunxi_iommu_suspend(",self.remove)
+    def test_no_silent_missing_pm_in_generated_source(self):
+        for marker in ("sunxi_iommu_suspend(", "sunxi_iommu_resume(",
+                       "sunxi_iommu_dt_ids[]"):
+            self.assertEqual(self.text.count(marker),1)
+
     def test_other_safety_blockers_unresolved(self):
         self.assertIn("global_iommu_domain",self.text)
         self.assertIn("sunxi_iommu_attach_dev",self.text)
