@@ -111,9 +111,25 @@ def main():
     env["CROSS_COMPILE"]=a.cross_compile
     env.pop("CC",None)
     env.pop("HOSTCC",None)
+    # Enable only in this copied build tree. Otherwise CONFIG_IOMMU_SUPPORT=n
+    # exposes stub iommu_ops definitions and floods the compiler with false
+    # API errors. Do not change the validated archived config or live tree.
+    rc=run([str(work/"scripts/config"),"--file",str(work/".config"),
+            "-e","IOMMU_SUPPORT","-e","IOMMU_DMA"],log,env)
+    if rc:
+        print("ISOLATED CONFIG ENABLE FAIL; log:",log)
+        sys.exit(rc)
     rc=run(["make","-C",str(work),"olddefconfig"],log,env)
     if not rc:
         rc=run(["make","-C",str(work),"-j"+str(a.jobs),"prepare"],log,env)
+    cfg_after=(work/".config").read_text(errors="replace")
+    for opt in ("CONFIG_IOMMU_SUPPORT=y","CONFIG_IOMMU_DMA=y","CONFIG_ARM64=y"):
+        if opt not in cfg_after:
+            with log.open("a") as lf:
+                lf.write("ERROR: isolated config missing required option "+opt+"\n")
+            sys.exit("STOP: isolated config did not retain "+opt)
+    with manifest.open("a") as mf:
+        mf.write("Isolated IOMMU-enabled config SHA256: "+sha(work/".config")+"\n")
     if rc:
         with manifest.open("a") as f:f.write("Kernel prepare failed: "+str(rc)+"\n")
         print("PREPARE FAIL; log:",log)
