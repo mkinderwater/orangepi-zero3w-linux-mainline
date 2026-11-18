@@ -60,6 +60,29 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
   else
     echo "NO /boot directory"
   fi
+  echo "=== FAT/config partitions (read-only) ==="
+  while read -r OFFSET_FAT LIMIT_FAT; do
+    [[ -n "$OFFSET_FAT" ]] || continue
+    FATMNT="$(mktemp -d)"
+    if mount -t vfat -o "ro,loop,offset=$OFFSET_FAT,sizelimit=$LIMIT_FAT" "$IMAGE" "$FATMNT"; then
+      find "$FATMNT" -maxdepth 4 -type f -printf "%P %s bytes\\n" 2>/dev/null | sed -n "1,90p" || :
+      while IFS= read -r -d "" file; do
+        echo "FAT BOOT SCRIPT: ${file#"$FATMNT"}"
+        strings -a -n 4 "$file" | sed -n "1,100p" || :
+      done < <(find "$FATMNT" -maxdepth 4 -type f \( -name "*.scr" -o -name "*.cmd" \) -print0 2>/dev/null)
+      umount "$FATMNT"
+    else
+      echo "Cannot mount FAT partition at offset $OFFSET_FAT"
+    fi
+    rmdir "$FATMNT"
+  done < <(sfdisk -J "$IMAGE" | python3 -c '
+import json,sys
+j=json.load(sys.stdin)["partitiontable"]
+sector=int(j.get("sectorsize",512))
+for p in j.get("partitions",[]):
+    if str(p.get("type","")).lower().removeprefix("0x") in ("b","c","e","6","0b","0c","0e","06"):
+        print(p["start"]*sector,p["size"]*sector)
+  ')
   cleanup_one
 done
 echo
