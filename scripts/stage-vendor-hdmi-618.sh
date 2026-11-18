@@ -6,13 +6,13 @@ set -euo pipefail
 BASE="${BASE:-/root/opi3w-m2-work/a733-try9-ramoops-v2/linux}"
 VENDOR="${VENDOR:-/root/opi3w-vendor-6698-work/kernel}"
 CONFIG="${CONFIG:-/root/opi3w-m2-work/linux-618-full-integration/artifacts/kernel.config}"
-OUT="${OUT:-/root/opi3w-m2-work/linux-618-hdmi-stage1}"
+OUT="${OUT:-/root/opi3w-m2-work/linux-618-hdmi-stage2}"
 JOBS="${JOBS:-4}"
 
 for exe in rsync make aarch64-linux-gnu-gcc sha256sum python3 grep; do
   command -v "$exe" >/dev/null || { echo "Missing: $exe" >&2; exit 1; }
 done
-for f in "$BASE/Makefile" "$BASE/bsp/drivers/Makefile" "$BASE/bsp/drivers/Kconfig" \
+for f in "$BASE/Makefile" "$BASE/drivers/gpu/drm/Makefile" "$BASE/drivers/gpu/drm/Kconfig" \
          "$VENDOR/bsp/drivers/drm/Makefile" "$VENDOR/bsp/drivers/drm/Kconfig" "$CONFIG"; do
   [[ -f "$f" ]] || { echo "Missing dependency: $f" >&2; exit 1; }
 done
@@ -23,24 +23,36 @@ rsync -a --exclude='.git' --exclude='*.o' --exclude='*.ko' \
   --exclude='*.cmd' --exclude='vmlinux' --exclude='Image' "$BASE/" "$OUT/linux/"
 SRC="$OUT/linux"
 # Only vendor DRM implementation, not the entire vendor source/BSP.
-rsync -a "$VENDOR/bsp/drivers/drm/" "$SRC/bsp/drivers/drm/"
+rsync -a "$VENDOR/bsp/drivers/drm/" "$SRC/drivers/gpu/drm/sunxi_vendor/"
 sha256sum "$VENDOR/bsp/drivers/drm/Kconfig" "$VENDOR/bsp/drivers/drm/Makefile" \
   > "$OUT/vendor-drm-hashes.txt"
 python3 - "$SRC" <<'PY'
 from pathlib import Path
 import sys
 src = Path(sys.argv[1])
-kf = src / 'bsp/drivers/Kconfig'
-mf = src / 'bsp/drivers/Makefile'
+kf = src / 'drivers/gpu/drm/Kconfig'
+mf = src / 'drivers/gpu/drm/Makefile'
 kc, mk = kf.read_text(), mf.read_text()
-hook_k = 'source "bsp/drivers/drm/Kconfig"'
-hook_m = 'obj-$(CONFIG_AW_DRM) += drm/'
+hook_k = 'source "drivers/gpu/drm/sunxi_vendor/Kconfig"'
+hook_m = 'obj-$(CONFIG_AW_DRM) += sunxi_vendor/'
+# Keep AW_BSP dependency satisfiable only as a minimal integration selector.
+# This does not introduce unrelated vendor drivers or claim complete BSP parity.
+compat = '''
+config AW_BSP
+    bool "Allwinner A733 BSP integration hooks"
+    depends on ARM64
+    default y
+
+'''
+vendor_k = src / 'drivers/gpu/drm/sunxi_vendor/Kconfig'
+vk = vendor_k.read_text()
+if 'config AW_BSP' not in kc and 'config AW_BSP' not in vk:
+    vk = compat + vk
+    vendor_k.write_text(vk)
 if hook_k not in kc:
-    # Add a single Kconfig source line, not a random third-party driver.
     kc += '\n' + hook_k + '\n'
     kf.write_text(kc)
 if hook_m not in mk:
-    # Vendor DRM/Makefile contains the actual sunxidrm object dependencies.
     mk += '\n' + hook_m + '\n'
     mf.write_text(mk)
 PY
@@ -62,7 +74,7 @@ make -C "$SRC" O="$OUT/obj" ARCH=arm64 \
   >"$OUT/configure.log" 2>&1 || {
     tail -100 "$OUT/configure.log"; exit 1;
   }
-for required in DRM AW_DRM AW_DRM_DE AW_DRM_TCON AW_DRM_TCON_TV \
+for required in DRM AW_BSP AW_DRM AW_DRM_DE AW_DRM_TCON AW_DRM_TCON_TV \
                 AW_DRM_HDMI_TX AW_DRM_HDMI20; do
   if ! grep -qx "CONFIG_${required}=y" "$OUT/obj/.config"; then
     echo "STOP: CONFIG_${required} not enabled after dependency resolution"
