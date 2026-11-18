@@ -62,3 +62,28 @@ Operator reports full kernel Image/modules build finished. Image SHA-256 `97c98f
 ### Verified MMC staging result from Debian host
 
 Operator ran `scripts/stage-25mhz-mmc-dtb.sh` successfully after pulling the branch. It reported the original corrected-clock DTB SHA-256 `1ff786ed912df7d4b4d19e366b3c968a5e0552c39f58d61a8414514eba141d9d` and distinct capped DTB SHA-256 `c3286ee33e46b0f2792b1cad47da5f4307660092e275ade5bdb762336f818ee0`, with `MMC0 remains DISABLED`. The script verified 26,000,000 Hz oscillator input, 25,000,000 Hz `max-frequency`, and disabled MMC0 status. **Actual MMC bus frequency and card OCR negotiation have not been tested.**
+
+### MMC0 dependency audit from built DTB and config
+
+Operator queried the 25 MHz capped DTB and the full kernel config:
+
+```text
+compatible: allwinner,sun60i-a733-mmc allwinner,sun20i-d1-mmc
+status: disabled
+max-frequency: 25000000
+bus-width: absent
+clocks: 2 141 2 140
+clock-names: ahb mmc
+resets: 2 34
+pinctrl-0: 5
+vmmc-supply: absent
+vqmmc-supply: absent
+CONFIG_I2C=y
+CONFIG_MFD_AXP20X=y
+CONFIG_REGULATOR=y
+CONFIG_MMC=y
+CONFIG_MMC_BLOCK=y
+CONFIG_MMC_SUNXI=y
+```
+
+**Interpretation:** clock cap staged but no active MMC clock or card enumeration yet. DTB does not specify SD bus width, vmmc or vqmmc. MFD/REGULATOR generic frameworks alone do not prove AXP8191 bindings or correct voltage rail. Do not enable MMC until board pinctrl, card supply, and compatible PMIC/R-I2C wiring are grounded in proven vendor DTB and source. The primary concern is repeating `no support for card's volts`, which can arise from an empty host OCR mask; fixed clock rates alone do not resolve voltage negotiation.
