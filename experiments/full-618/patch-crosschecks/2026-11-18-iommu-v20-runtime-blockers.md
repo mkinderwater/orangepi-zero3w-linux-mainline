@@ -92,3 +92,17 @@ python3 scripts/draft-a733-iommu-v20-domain-stage6.py
 ```
 
 Review the generated `iommu-v20-domain-stage6-draft.c.patch` and run a clean, separate compile only after verifying the source. Never promote the draft into the operational kernel tree.
+
+## Stage 6 generated patch review
+
+The operator supplied `iommu-v20-domain-stage6-draft.c.patch` (63 lines). It makes only the four intended classes of changes: duplicate allocation returns NULL, failed HW init unwinds software buffers, domain_free clears global pointer, and attach_dev checks pointers/owner/controller. It does **not** change DMA, page tables, runtime device programming or core locking.
+
+The patch must NOT be merged as a runtime fix:
+- No synchronization protects the `global_iommu_domain` check/store/clear, so competing allocations/frees can race.
+- The pointer is published **before** `sunxi_iommu_hw_init()` finishes. On error it is cleared, but another path can observe a partially initialized domain.
+- On failed `sunxi_iommu_hw_init()`, only software buffer rollback is attempted. Hardware/controller side effects and `iommu_hw_init_flag` must be independently tracked and undone where possible.
+- A second Linux IOMMU core paging-domain allocation will return `NULL`, which might prevent group setup. This containment is not a verified multi-device domain design.
+- `attach_dev()` pointer checks still do not bind a hardware master to the correct translation context or validate lifetime.
+- `global_iommu_dev`, `global_group` and static page-table parameters remain global; DMA sync/IOVA mapping B2/B5/B6 remain unresolved.
+
+Recommendation: permit **compile-only** evaluation on a disposable source copy, but design a coherent ownership and hardware activation state machine before further runtime changes. Do not mark B1, B3 or B4 fixed based only on successful compilation.
