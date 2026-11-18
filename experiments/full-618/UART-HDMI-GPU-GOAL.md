@@ -104,3 +104,29 @@ Operator booted the VBI-based RAM-B automatic-image control using the SHA-verifi
 **Interpretation:** the no-output symptom cannot be claimed to be a generic Linux 6.18 failure or a BL31 handoff failure. An HDMI connection is correlated with the silent-console symptom. Exactly whether disconnect was before or during the boot and whether the same-boot system was running silently is not proven; repeat controlled HDMI connected/disconnected cold boots with otherwise identical payloads, serial logging and power conditions before ascribing root cause. Vendor U-Boot's display-path clock failure (`clk_set_rate: <NULL> has NULL parent`, `suxni tcon hdmi set rate`) is a plausible lead, not proof of the mechanism. `keep_bootcon` causes duplicate logs; treat duplicate kernel printk as console overlap, separately from HDMI interaction. RAM-B `CONFIG_PROC_FS=n` explains the proc mount error.
 
 **Immediate actions:** freeze known-good VBI-based RAM-B control image and hashes; compare HDMI connected/disconnected cold boots of that exact image; independently verify UART output and shell responsiveness on both; then test the isolated PCK-600 kernel with the same 26MHz baseline DTB, and finally the PCK-600 DTB. Restore the original priority of delivering simultaneous UART + HDMI, then PowerVR. Do not alter firmware, CCU clock values, or reboot logic based solely on this single observation.
+
+## 2026-11-18 A733 PCK-600 hardware probe verified
+
+Operator booted `opi3w-618-pck600-ram-shell.img` with HDMI disconnected. Its Linux 6.18 kernel is `Image-618-vendor-hdmi-pck600-syscon` (SHA256 `9f8c4af6f7f3d5ff604aac29bd7553e04dc3a41c0c8a5000308594c49ab5cb1c`), with verified PCK probe DTB SHA256 `c5cc45413f4be4efbf80a1c26c061462e2a9b2e3649a49bf055b008d5209f697` and a RAM-only BusyBox initramfs. The source image `opi3w-618-pck600-fat-probe.img` previously reached userspace with an M2cr initramfs but waited 90 seconds for a nonexistent root UUID.
+
+Observed UART:
+```text
+PCK600-RAM-SHELL: /init entered
+PCK600-RAM-SHELL: no MMC/PMIC root discovery
+PCK600-RAM-SHELL: interactive BusyBox follows
+probe of 7060000.pck-600 returned 19 after 15 usecs
+probe of 2002000.clock-controller returned 0 after 691 usecs
+probe of 7010000.clock-controller returned 0 after 429 usecs
+probe of DE_SYS returned 0 after 17 usecs
+probe of VO returned 0 after 11 usecs
+probe of VO1 returned 0 after 11 usecs
+probe of 7060000.pck-600:power-controller returned 0 after 11160 usecs
+probe of 7025000.pinctrl returned -517 after 3 usecs
+probe of 2000000.pinctrl returned -517 after 2 usecs
+probe of 7025000.pinctrl returned 0 after 28496 usecs
+probe of 2000000.pinctrl returned 0 after 31674 usecs
+PM: genpd: Disabling unused power domains
+```
+`/sys/bus/platform/drivers/sunxi-pck-600/` contains a bound symlink to `7060000.pck-600:power-controller`. BusyBox uptime output: **13m23s** with no reset observed. Note the parent `7060000.pck-600` probe diagnostic `19` is not a negative error code; verify context only if it becomes relevant. Pin controllers initially deferred (`-517`), later initialized.
+
+**Milestone reached:** PCK-600 genpd provider and all three declared A733 display domains register successfully on hardware. This does not demonstrate domain power transitions, display scanout, IOMMU success, HDMI electrical signaling or PowerVR acceleration. The current probe DTB intentionally lacks DE, TCON and HDMI graph nodes. Next controlled experiment: check reproducible UART with HDMI physically connected on the exact same image; if stable, integrate the vendor display graph with translated A733 CCU reset/clock bindings and validate provider dependencies before building another DTB. Retain current kernel and verified power-domain setup.
