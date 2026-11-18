@@ -9,6 +9,7 @@ import argparse, hashlib, os, pathlib, shutil, subprocess, sys
 VENDOR=pathlib.Path("/root/opi3w-vendor-6698-work/kernel")
 KERNEL=pathlib.Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/linux")
 OUT=pathlib.Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/artifacts/iommu-v20-port-stage1")
+EXPECTED_CONFIG_SHA="f98a84b103b7fb897f4bd962ac4f13a8d0b614cd8a3ec206eda80d18b3174be5"
 FILES=("sunxi-iommu-v2.c","sunxi-iommu-common.c","sunxi-iommu-pgtable.c",
        "sunxi-iommu-pgtable.h","sunxi-iommu.h")
 def sha(p):
@@ -27,6 +28,7 @@ def main():
     p.add_argument("--vendor",type=pathlib.Path,default=VENDOR)
     p.add_argument("--linux",type=pathlib.Path,default=KERNEL)
     p.add_argument("--out",type=pathlib.Path,default=OUT)
+    p.add_argument("--config",type=pathlib.Path,help="Existing Stage 4 kernel configuration file")
     p.add_argument("--jobs",type=int,default=2)
     p.add_argument("--stage-only",action="store_true")
     a=p.parse_args()
@@ -36,7 +38,28 @@ def main():
     for q in [a.linux/"Makefile",a.linux/"Kconfig",source/"Makefile",*[source/f for f in FILES]]:
         if not q.is_file():sys.exit("STOP: source missing "+str(q))
     if not (a.linux/"scripts/config").is_file():sys.exit("STOP: missing Linux scripts/config")
-    if not (a.linux/".config").is_file():sys.exit("STOP: local Linux .config missing")
+    # The validated Stage 4 config may be archived outside the source tree.
+    # Only accept the precise hash recorded with the compiled Stage 4 kernel.
+    artifacts=a.linux.parent/"artifacts"
+    candidates=[
+        a.linux/".config",
+        artifacts/"Image-618-vendor-hdmi-pck600-syscon.config",
+        artifacts/".config",
+        artifacts/"linux-618.config",
+    ]
+    if a.config is not None:
+        candidates=[a.config]
+    config=next((p for p in candidates if p.is_file() and sha(p)==EXPECTED_CONFIG_SHA),None)
+    if config is None:
+        for pth in candidates:
+            if pth.is_file():
+                print("REJECT: unexpected config hash:",pth,sha(pth),file=sys.stderr)
+        sys.exit(
+            "STOP: validated Stage 4 .config not found. Locate it read-only with:\n"
+            "find /root/opi3w-m2-work/linux-618-hdmi-stage4 -type f "
+            "\\( -name '.config' -o -name '*.config' \\) -print\n"
+            "Then rerun with --config /absolute/path/to/config; expected SHA256 "
+            + EXPECTED_CONFIG_SHA)
     # Staging must not be nested within either input kernel tree.
     out=a.out.resolve()
     for root in (a.linux.resolve(),a.vendor.resolve()):
@@ -49,6 +72,7 @@ def main():
     # cp --reflink=auto is GNU coreutils: falls back to full copy if reflinks unavailable.
     rc=run(["cp","-a","--reflink=auto",str(a.linux)+"/.",str(work)],log)
     if rc:sys.exit("STOP: source copy failed; see "+str(log))
+    shutil.copy2(config,work/".config")
     target=work/"drivers/iommu/aw-v20"
     target.mkdir(parents=True,exist_ok=False)
     for name in FILES:shutil.copy2(source/name,target/name)
@@ -63,7 +87,8 @@ def main():
         "No Kconfig additions, DTB modifications, or kernel image updates.\n"
         "Stage Linux source: "+str(a.linux)+"\n"
         "Stage vendor source: "+str(source)+"\n"
-        "Linux .config SHA256: "+sha(a.linux/".config")+"\n"+
+        "Validated configuration: "+str(config)+"\n"
+        "Linux .config SHA256: "+sha(config)+"\n"+
         "\n".join(name+" SHA256 "+sha(source/name) for name in FILES)+"\n")
     if a.stage_only:
         print("STAGED (no compilation):",a.out);return
@@ -71,6 +96,11 @@ def main():
     # mismatch. Preserve full diagnostics and return a nonzero code on failure.
     env=os.environ.copy()
     env["KBUILD_BUILD_TIMESTAMP"]="1970-01-01"
+    rc=run(["make","-C",str(work),"-j"+str(a.jobs),"olddefconfig","prepare"],log,env)
+    if rc:
+        with manifest.open("a") as f:f.write("Kernel prepare failed: "+str(rc)+"\\n")
+        print("PREPARE FAIL; log:",log)
+        sys.exit(rc)
     rc=run(["make","-C",str(work),"-j"+str(a.jobs),"V=1",
             "drivers/iommu/aw-v20/"],log,env)
     with manifest.open("a") as f:f.write("Compile-only return code: "+str(rc)+"\n")
