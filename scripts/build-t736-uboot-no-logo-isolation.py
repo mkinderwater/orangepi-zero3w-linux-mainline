@@ -16,7 +16,7 @@ import subprocess
 
 SOURCE_REV = "b791be842935b27268ae3d00e943a9075495f30a"
 SOURCE_DEFAULT = Path("/root/opi3w-uboot-audit/u-boot-orangepi")
-OUT_DEFAULT = Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/uboot-no-logo-isolation")
+OUT_DEFAULT = Path("/root/opi3w-m2-work/linux-618-hdmi-stage4/uboot-no-logo-isolation-v2")
 BOARD_FILE = Path("board/sunxi/board_common.c")
 DEFCONFIG = "sun60iw2p1_t736_defconfig"
 
@@ -74,10 +74,37 @@ def main():
     run(["git","diff","--check"],cwd=a.output)
     patch=run(["git","diff","--",str(BOARD_FILE)],cwd=a.output)
     (evidence/"no-logo-only.patch").write_text(patch)
+    # Vendor Makefile overrides CROSS_COMPILE with a missing bundled Linaro
+    # path and attempts extracting proprietary build-tree toolchain archives.
+    # Remove only that auto-toolchain-selection block in this isolated clone.
+    # Pass the available Debian cross-compiler on the make command line.
+    makefile=a.output/"Makefile"
+    m=makefile.read_text()
+    begin=m.find("riscv_toolchain_check=")
+    finish=m.find("\n# ",begin)
+    # Identify the end by a unique subsequent architecture-selection anchor.
+    selector=m.find("ifeq (x$(CONFIG_RISCV), xy)",begin)
+    toolchain_block=m[begin:selector] if selector>=0 else ""
+    require(begin>=0 and selector>begin and
+            "gcc-linaro-7.2.1-2017.11-x86_64_arm-linux-gnueabi" in toolchain_block,
+            "Vendor bundled toolchain block could not be isolated")
+    # Keep configuration and architecture logic; only eliminate forced extraction.
+    m=m[:begin]+("# Isolation build: no bundled-toolchain extraction.\n"
+                  "# CROSS_COMPILE must be supplied as a make command-line option.\n")
+      +m[selector:]
+    makefile.write_text(m)
+    changed=set(run(["git","diff","--name-only"],cwd=a.output).splitlines())
+    require(changed=={str(BOARD_FILE),"Makefile"},
+            "unexpected changed files after toolchain isolation: "+repr(changed))
+    run(["git","diff","--check"],cwd=a.output)
+    (evidence/"isolated-build-environment.patch").write_text(
+        run(["git","diff","--","Makefile"],cwd=a.output))
     (evidence/"STATUS.txt").write_text(
         "Source-only U-Boot experimental no-logo bypass, UNTESTED on hardware.\n"
         f"Base git commit: {SOURCE_REV}\nConfig: {DEFCONFIG}\n"
         "Change: replace two logo calls in board_env_late_init with print markers.\n"
+        "Build-only change: remove vendor bundled-toolchain extraction, use system cross compiler.\n"
+        "Build IN TREE because vendor sunxi_challenge generator assumes source cwd.\n"
         "Firmware Boot0/BL31/SCP and existing images UNCHANGED.\n"
         "The actual installed U-Boot is 2018.07-orangepi-config-dirty,\n"
         "whereas this source is a 2018.05-derived branch.\n"
@@ -86,9 +113,9 @@ def main():
     )
     env=os.environ.copy()
     env.update({"ARCH":"arm","CROSS_COMPILE":a.cross})
-    build=a.output/"out"
+    build=a.output
     def do_make(targets,log):
-        args=["make","-C",str(a.output),"O="+str(build)]+targets
+        args=["make","-C",str(a.output),"CROSS_COMPILE="+a.cross]+targets
         with (evidence/log).open("w") as writer:
             p=subprocess.Popen(args,env=env,stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT,text=True)
