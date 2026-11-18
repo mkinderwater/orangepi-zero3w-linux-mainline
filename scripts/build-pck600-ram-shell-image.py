@@ -92,8 +92,14 @@ def build_initrd(source, directory):
     headers=subprocess.check_output(["readelf","-l",str(busybox)],text=True)
     need("Requesting program interpreter" not in headers,
          "BusyBox is dynamic; not safe to assume dependencies")
-    (rd/"init").write_text(INIT)
-    (rd/"init").chmod(0o755)
+    init_path=rd/"init"
+    # Never follow an existing /init symlink into BusyBox or other binaries.
+    if init_path.is_symlink():
+        init_path.unlink()
+    elif init_path.exists() and not init_path.is_file():
+        raise RuntimeError("STOP: /init is not a regular file or symlink")
+    init_path.write_text(INIT)
+    init_path.chmod(0o755)
     for node in ("proc","sys","dev"):
         (rd/node).mkdir(exist_ok=True)
     console=rd/"dev/console"
