@@ -42,17 +42,17 @@ print(str(p["start"]*sector)+" "+str(p["size"]*sector))
     continue
   fi
   echo "=== /boot files (names and sizes) ==="
-  find "$MNT/boot" -maxdepth 4 -type f -printf '%P %s bytes\n' 2>/dev/null | head -110
+  find "$MNT/boot" -maxdepth 4 -type f -printf '%P %s bytes\n' 2>/dev/null | sed -n '1,110p'
   echo "=== candidate boot scripts ==="
   while IFS= read -r -d '' script; do
     echo "SCRIPT: ${script#"$MNT"}"
     echo "SHA256: $(sha256sum "$script")"
     dumpimage -T script -p 0 -o /dev/stdout "$script" 2>/dev/null |
-      grep -E -i 'mainline|booti|bootm|fdt|dtb|Image|initrd|ramdisk|ext4load|load |source|console|bootargs' | head -70 || :
+      grep -E -i 'mainline|booti|bootm|fdt|dtb|Image|initrd|ramdisk|ext4load|load |source|console|bootargs' | sed -n '1,70p' || :
   done < <(find "$MNT/boot" -type f \( -name '*.scr' -o -name 'boot.scr' \) -print0 2>/dev/null)
   echo "=== RAM-B known DTB/kernel/initrd hashes if present ==="
   find "$MNT/boot" -type f \( -name 'Image*' -o -name '*ram-b*.dtb' -o -name '*diagnostic*initrd*' \) -print0 2>/dev/null |
-    xargs -0 -r sha256sum | head -35
+    xargs -0 -r sha256sum | sed -n '1,35p'
   cleanup_one
 done
 echo
